@@ -23,8 +23,18 @@ export interface OneShotMcpOptions {
   onProcessExit?: (child: ChildProcessWithoutNullStreams) => void;
 }
 
+export interface OneShotMcpCall {
+  method: string;
+  params?: unknown;
+}
+
 export interface OneShotMcpResult<T = unknown> {
   response: JsonRpcSuccess<T>;
+  stderr: string;
+}
+
+export interface OneShotMcpSequenceResult {
+  responses: JsonRpcSuccess[];
   stderr: string;
 }
 
@@ -63,6 +73,19 @@ export async function runOneShotMcpRequest<T = unknown>(
   params?: unknown,
   options: OneShotMcpOptions = {},
 ): Promise<OneShotMcpResult<T>> {
+  const result = await runOneShotMcpRequests(command, [{ method, params }], options);
+  const response = result.responses.at(-1);
+  if (!response) throw new Error("MCP sequence completed without a response");
+  return { response: response as JsonRpcSuccess<T>, stderr: result.stderr };
+}
+
+export async function runOneShotMcpRequests(
+  command: StudioMcpCommand,
+  calls: OneShotMcpCall[],
+  options: OneShotMcpOptions = {},
+): Promise<OneShotMcpSequenceResult> {
+  if (calls.length === 0) throw new Error("At least one MCP request is required");
+
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const spawnCommand = makeSpawnCommand(command);
   const child = spawn(spawnCommand.command, spawnCommand.args, {
@@ -114,7 +137,7 @@ export async function runOneShotMcpRequest<T = unknown>(
       let parsed: unknown;
       try {
         parsed = JSON.parse(line);
-      } catch (error) {
+      } catch {
         failAll(new Error(`Invalid MCP JSON line: ${line}`));
         continue;
       }
@@ -157,7 +180,11 @@ export async function runOneShotMcpRequest<T = unknown>(
     writeMessage(child, { jsonrpc: "2.0", id, method: requestMethod, params: requestParams });
 
     const timeoutPromise = new Promise<never>((_resolve, reject) => {
-      setTimeout(() => reject(new Error(`Timed out waiting for MCP ${requestMethod} after ${timeoutMs}ms`)), timeoutMs);
+      const timer = setTimeout(() => {
+        pending.delete(id);
+        reject(new Error(`Timed out waiting for MCP ${requestMethod} after ${timeoutMs}ms`));
+      }, timeoutMs);
+      responsePromise.finally(() => clearTimeout(timer)).catch(() => clearTimeout(timer));
     });
 
     const response = await Promise.race([responsePromise, timeoutPromise]);
@@ -174,8 +201,12 @@ export async function runOneShotMcpRequest<T = unknown>(
 
     writeMessage(child, { jsonrpc: "2.0", method: "notifications/initialized" });
 
-    const response = await sendRequest<T>(method, params);
-    return { response, stderr };
+    const responses: JsonRpcSuccess[] = [];
+    for (const call of calls) {
+      responses.push(await sendRequest(call.method, call.params));
+    }
+
+    return { responses, stderr };
   } finally {
     options.signal?.removeEventListener("abort", abort);
     await cleanup();

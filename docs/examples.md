@@ -30,6 +30,8 @@ Then run:
 
 `roblox_studio_mcp_call_tool` starts StudioMCP, runs MCP `tools/call` for any tool name and arguments, then shuts the process down.
 
+If you already have a Studio id from `list_roblox_studios`, include `activeStudioId` so `set_active_studio` and the target tool run in the same temporary StudioMCP process.
+
 ## Agent Skill
 
 `skills/roblox-studio/SKILL.md` tells the agent to prefer on-demand StudioMCP child processes and avoid long-running MCP registration.

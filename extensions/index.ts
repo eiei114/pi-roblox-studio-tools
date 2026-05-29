@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { resolveStudioMcpCommand } from "../lib/studio-mcp.ts";
-import { runOneShotMcpRequest, StudioMcpProcessRegistry } from "../lib/stdio-mcp-client.ts";
+import { runOneShotMcpRequest, runOneShotMcpRequests, StudioMcpProcessRegistry } from "../lib/stdio-mcp-client.ts";
 
 const statusParameters = Type.Object({
   verbose: Type.Optional(Type.Boolean({ description: "Include all checked candidate paths." })),
@@ -16,6 +16,7 @@ const callToolParameters = Type.Object({
   name: Type.String({ description: "StudioMCP tool name to call, e.g. script_read, execute_luau, inspect_instance." }),
   arguments: Type.Optional(Type.Record(Type.String(), Type.Any(), { description: "Arguments object passed to the StudioMCP tool." })),
   timeoutMs: Type.Optional(Type.Number({ description: "Maximum milliseconds to wait for StudioMCP responses. Default: 5000." })),
+  activeStudioId: Type.Optional(Type.String({ description: "Optional Studio id. When set, set_active_studio runs in the same StudioMCP process before the requested tool." })),
 });
 
 function firstLine(value: unknown): string {
@@ -160,8 +161,8 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "roblox_studio_mcp_call_tool",
     label: "Roblox Studio MCP Call Tool",
-    description: "Start StudioMCP on demand, call any available StudioMCP tool with arguments, then shut the process down. No confirmation UI is shown.",
-    promptSnippet: "roblox_studio_mcp_call_tool: start StudioMCP on demand, call any Roblox Studio MCP tool with arguments, then stop it",
+    description: "Start StudioMCP on demand, optionally set active Studio in the same process, call any available StudioMCP tool with arguments, then shut the process down. No confirmation UI is shown.",
+    promptSnippet: "roblox_studio_mcp_call_tool: start StudioMCP on demand, optionally set active Studio, call any Roblox Studio MCP tool with arguments, then stop it",
     promptGuidelines: [
       "Use roblox_studio_mcp_call_tool to execute Roblox Studio MCP tools by name when the user asks for Studio inspection or modification.",
       "Use roblox_studio_mcp_list_tools first when unsure about available StudioMCP tool names or schemas.",
@@ -172,19 +173,31 @@ export default function (pi: ExtensionAPI) {
       const status = await resolveStudioMcpCommand();
       if (!status.command) throw new Error(formatStatus(status, true));
 
-      const result = await runOneShotMcpRequest(status.command, "tools/call", {
-        name: params.name,
-        arguments: params.arguments ?? {},
-      }, {
+      const calls = [];
+      if (params.activeStudioId) {
+        calls.push({
+          method: "tools/call",
+          params: { name: "set_active_studio", arguments: { studio_id: params.activeStudioId } },
+        });
+      }
+      calls.push({
+        method: "tools/call",
+        params: { name: params.name, arguments: params.arguments ?? {} },
+      });
+
+      const result = await runOneShotMcpRequests(status.command, calls, {
         timeoutMs: params.timeoutMs,
         signal,
         onProcess: (child) => processes.track(child),
         onProcessExit: (child) => processes.untrack(child),
       });
 
+      const response = result.responses.at(-1);
+      if (!response) throw new Error("StudioMCP call sequence completed without a response");
+
       return {
-        content: [{ type: "text", text: formatMcpToolResult(result.response.result) }],
-        details: { result: result.response.result, stderr: result.stderr },
+        content: [{ type: "text", text: formatMcpToolResult(response.result) }],
+        details: { result: response.result, setupResult: result.responses.at(-2)?.result, stderr: result.stderr },
       };
     },
   });

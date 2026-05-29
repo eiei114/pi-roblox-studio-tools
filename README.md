@@ -60,6 +60,8 @@ roblox_studio_mcp_list_tools
 roblox_studio_mcp_call_tool
 ```
 
+When StudioMCP reports an inactive Studio, pass `activeStudioId` to set the target Studio in the same on-demand MCP process before the requested tool runs.
+
 ## StudioMCP paths
 
 Windows:

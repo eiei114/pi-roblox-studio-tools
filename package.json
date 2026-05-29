@@ -1,0 +1,60 @@
+{
+  "name": "pi-roblox-studio-tools",
+  "version": "0.1.0",
+  "description": "On-demand Roblox Studio MCP tools for Pi without a long-running MCP server.",
+  "type": "module",
+  "license": "MIT",
+  "author": "eiei114",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "roblox",
+    "roblox-studio",
+    "mcp",
+    "typescript"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eiei114/pi-roblox-studio-tools.git"
+  },
+  "bugs": {
+    "url": "https://github.com/eiei114/pi-roblox-studio-tools/issues"
+  },
+  "homepage": "https://github.com/eiei114/pi-roblox-studio-tools#readme",
+  "files": [
+    "extensions/",
+    "lib/",
+    "skills/",
+    "docs/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.mjs",
+    "ci": "npm run typecheck && npm test && npm run pack:check",
+    "pack:check": "npm pack --dry-run"
+  },
+  "pi": {
+    "extensions": [
+      "./extensions"
+    ],
+    "skills": [
+      "./skills"
+    ]
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "latest",
+    "typebox": "latest",
+    "@types/node": "^22.0.0",
+    "typescript": "^6.0.3"
+  }
+}

@@ -22,6 +22,7 @@ The package locates the official `StudioMCP` command on Windows and macOS. MCP t
 - Pi command: `/roblox-studio-mcp-status`
 - Pi tool: `roblox_studio_mcp_status`
 - Pi tool: `roblox_studio_mcp_list_tools` for on-demand MCP `tools/list`
+- Pi tool: `roblox_studio_mcp_call_tool` for full on-demand MCP `tools/call`
 - No persistent MCP process by default
 - TypeScript-first Pi package structure
 
@@ -56,6 +57,7 @@ The agent can also call:
 ```txt
 roblox_studio_mcp_status
 roblox_studio_mcp_list_tools
+roblox_studio_mcp_call_tool
 ```
 
 ## StudioMCP paths
@@ -105,7 +107,7 @@ See [`docs/release.md`](docs/release.md) for setup details.
 
 Pi packages can execute code with your local permissions. Review extensions before installing third-party packages.
 
-This package is designed to avoid a long-running MCP process. Future Studio mutation tools should make that behavior explicit in docs and use confirmation for destructive actions.
+This package is designed to avoid a long-running MCP process. Studio mutation tools run without confirmation UI, so review tool names and arguments carefully.
 
 For vulnerability reporting, see [`SECURITY.md`](SECURITY.md).
 

@@ -25,7 +25,7 @@ Avoid configuring Roblox Studio MCP as a long-running MCP server in Pi. Instead,
 1. Spawn StudioMCP as a child process.
 2. Send MCP `initialize`.
 3. Send `notifications/initialized`.
-4. Send exactly one request, currently used for `tools/list`.
+4. Send exactly one request, currently used for `tools/list` and `tools/call`.
 5. Close stdin and kill after a short grace period if needed.
 6. Clean up active child processes on `session_shutdown`.
 

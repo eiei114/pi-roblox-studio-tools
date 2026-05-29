@@ -12,6 +12,11 @@ const listToolsParameters = Type.Object({
   includeSchemas: Type.Optional(Type.Boolean({ description: "Include full tool schemas in the text output. Default: false." })),
 });
 
+const callToolParameters = Type.Object({
+  name: Type.String({ description: "StudioMCP tool name to call, e.g. script_read, execute_luau, inspect_instance." }),
+  arguments: Type.Optional(Type.Record(Type.String(), Type.Any(), { description: "Arguments object passed to the StudioMCP tool." })),
+  timeoutMs: Type.Optional(Type.Number({ description: "Maximum milliseconds to wait for StudioMCP responses. Default: 5000." })),
+});
 
 function firstLine(value: unknown): string {
   if (typeof value !== "string") return "";
@@ -23,11 +28,39 @@ function truncateText(value: string, maxChars = 30_000): string {
   return `${value.slice(0, maxChars)}\n\n[truncated ${value.length - maxChars} chars]`;
 }
 
+function formatUnknownJson(value: unknown): string {
+  return truncateText(JSON.stringify(value, null, 2));
+}
+
+function formatMcpToolResult(result: unknown): string {
+  if (typeof result !== "object" || result === null || !("content" in result) || !Array.isArray(result.content)) {
+    return formatUnknownJson(result);
+  }
+
+  const lines: string[] = [];
+  for (const item of result.content) {
+    if (typeof item !== "object" || item === null) {
+      lines.push(String(item));
+      continue;
+    }
+
+    const record = item as { type?: unknown; text?: unknown; data?: unknown; mimeType?: unknown };
+    if (record.type === "text" && typeof record.text === "string") {
+      lines.push(record.text);
+      continue;
+    }
+
+    lines.push(JSON.stringify(record, null, 2));
+  }
+
+  return truncateText(lines.join("\n"));
+}
+
 function formatToolsList(result: unknown, includeSchemas = false): string {
-  if (includeSchemas) return truncateText(JSON.stringify(result, null, 2));
+  if (includeSchemas) return formatUnknownJson(result);
 
   if (typeof result !== "object" || result === null || !("tools" in result) || !Array.isArray(result.tools)) {
-    return truncateText(JSON.stringify(result, null, 2));
+    return formatUnknownJson(result);
   }
 
   const lines = [`${result.tools.length} Roblox Studio MCP tools:`];
@@ -44,6 +77,7 @@ function formatToolsList(result: unknown, includeSchemas = false): string {
 
   return lines.join("\n");
 }
+
 function formatStatus(status: Awaited<ReturnType<typeof resolveStudioMcpCommand>>, verbose = false): string {
   const lines = [status.message, `platform: ${status.platform}`, `supported: ${status.supported}`, `found: ${status.found}`];
 
@@ -107,9 +141,7 @@ export default function (pi: ExtensionAPI) {
     parameters: listToolsParameters,
     async execute(_toolCallId, params, signal) {
       const status = await resolveStudioMcpCommand();
-      if (!status.command) {
-        throw new Error(formatStatus(status, true));
-      }
+      if (!status.command) throw new Error(formatStatus(status, true));
 
       const result = await runOneShotMcpRequest(status.command, "tools/list", undefined, {
         timeoutMs: params.timeoutMs,
@@ -118,9 +150,40 @@ export default function (pi: ExtensionAPI) {
         onProcessExit: (child) => processes.untrack(child),
       });
 
-      const text = formatToolsList(result.response.result, params.includeSchemas ?? false);
       return {
-        content: [{ type: "text", text }],
+        content: [{ type: "text", text: formatToolsList(result.response.result, params.includeSchemas ?? false) }],
+        details: { result: result.response.result, stderr: result.stderr },
+      };
+    },
+  });
+
+  pi.registerTool({
+    name: "roblox_studio_mcp_call_tool",
+    label: "Roblox Studio MCP Call Tool",
+    description: "Start StudioMCP on demand, call any available StudioMCP tool with arguments, then shut the process down. No confirmation UI is shown.",
+    promptSnippet: "roblox_studio_mcp_call_tool: start StudioMCP on demand, call any Roblox Studio MCP tool with arguments, then stop it",
+    promptGuidelines: [
+      "Use roblox_studio_mcp_call_tool to execute Roblox Studio MCP tools by name when the user asks for Studio inspection or modification.",
+      "Use roblox_studio_mcp_list_tools first when unsure about available StudioMCP tool names or schemas.",
+      "roblox_studio_mcp_call_tool does not ask for confirmation, so choose StudioMCP tool names and arguments carefully.",
+    ],
+    parameters: callToolParameters,
+    async execute(_toolCallId, params, signal) {
+      const status = await resolveStudioMcpCommand();
+      if (!status.command) throw new Error(formatStatus(status, true));
+
+      const result = await runOneShotMcpRequest(status.command, "tools/call", {
+        name: params.name,
+        arguments: params.arguments ?? {},
+      }, {
+        timeoutMs: params.timeoutMs,
+        signal,
+        onProcess: (child) => processes.track(child),
+        onProcessExit: (child) => processes.untrack(child),
+      });
+
+      return {
+        content: [{ type: "text", text: formatMcpToolResult(result.response.result) }],
         details: { result: result.response.result, stderr: result.stderr },
       };
     },

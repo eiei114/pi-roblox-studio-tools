@@ -14,13 +14,14 @@
 
 Pi Roblox Studio Tools adds Pi-native tools for working with Roblox Studio MCP while avoiding an always-on MCP server process.
 
-The package locates the official `StudioMCP` command on Windows and macOS. Future tools will spawn StudioMCP only when a Pi tool call needs it, then shut it down after the request or after a short TTL.
+The package locates the official `StudioMCP` command on Windows and macOS. MCP tools spawn StudioMCP only when a Pi tool call needs it, then shut it down after the request.
 
 ## Features
 
 - Cross-platform StudioMCP path detection for Windows and macOS
 - Pi command: `/roblox-studio-mcp-status`
 - Pi tool: `roblox_studio_mcp_status`
+- Pi tool: `roblox_studio_mcp_list_tools` for on-demand MCP `tools/list`
 - No persistent MCP process by default
 - TypeScript-first Pi package structure
 
@@ -54,6 +55,7 @@ The agent can also call:
 
 ```txt
 roblox_studio_mcp_status
+roblox_studio_mcp_list_tools
 ```
 
 ## StudioMCP paths
@@ -77,7 +79,7 @@ macOS:
 | Path | Purpose |
 |---|---|
 | `extensions/` | Pi TypeScript extension entrypoints |
-| `lib/` | Shared StudioMCP discovery and future MCP client helpers |
+| `lib/` | Shared StudioMCP discovery and one-shot stdio MCP client helpers |
 | `skills/` | Agent Skill for Roblox Studio MCP workflow guidance |
 | `docs/` | Architecture, release, and setup docs |
 

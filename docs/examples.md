@@ -18,21 +18,14 @@ Then run:
 /roblox-studio-mcp-status
 ```
 
-## Custom tool
+## Custom tools
 
 `extensions/index.ts` registers:
 
 - `roblox_studio_mcp_status`
+- `roblox_studio_mcp_list_tools`
 
-The tool locates the official Roblox Studio MCP command without starting a persistent MCP server.
-
-Example response includes:
-
-- platform
-- supported flag
-- found flag
-- resolved command path
-- checked candidate paths when `verbose` is true
+`roblox_studio_mcp_list_tools` starts StudioMCP, runs MCP `tools/list`, summarizes tool names, and shuts the process down.
 
 ## Agent Skill
 

@@ -17,4 +17,5 @@ Core policy:
 Current package state:
 
 - `roblox_studio_mcp_status` locates StudioMCP.
-- Future tools should spawn StudioMCP only for the duration of one MCP request or a short TTL window.
+- `roblox_studio_mcp_list_tools` spawns StudioMCP on demand, runs `tools/list`, then shuts the process down.
+- Future mutation tools should spawn StudioMCP only for the duration of one MCP request or a short TTL window.

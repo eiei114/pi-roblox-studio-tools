@@ -16,7 +16,6 @@ Core policy:
 
 Current package state:
 
-- `roblox_studio_mcp_status` locates StudioMCP.
-- `roblox_studio_mcp_list_tools` spawns StudioMCP on demand, runs `tools/list`, then shuts the process down.
-- `roblox_studio_mcp_call_tool` spawns StudioMCP on demand, optionally runs `set_active_studio` via `activeStudioId`, runs any `tools/call`, then shuts the process down. It does not ask for confirmation.
-- Future convenience tools should still spawn StudioMCP only for the duration of one MCP request or a short TTL window.
+- `roblox_studio_mcp_status` locates StudioMCP and runs a lightweight initialize probe.
+- `/roblox-studio-mcp-status` reports whether StudioMCP was found and whether initialize succeeded.
+- Future slices will add on-demand `tools/list` and `tools/call` wrappers without a persistent MCP server.

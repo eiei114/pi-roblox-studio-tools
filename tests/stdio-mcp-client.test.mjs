@@ -31,6 +31,18 @@ rl.on("line", (line) => {
 });
 `;
 
+test("probeStudioMcpInitialize completes initialize without follow-up requests", async () => {
+  const { probeStudioMcpInitialize } = await import("../lib/stdio-mcp-client.ts");
+
+  const result = await probeStudioMcpInitialize(
+    { command: process.execPath, args: ["-e", fakeServer], source: "node fake server" },
+    { timeoutMs: 2000 },
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.error, undefined);
+});
+
 test("runOneShotMcpRequest initializes, sends one request, and returns result", async () => {
   const result = await runOneShotMcpRequest(
     { command: process.execPath, args: ["-e", fakeServer], source: "node fake server" },

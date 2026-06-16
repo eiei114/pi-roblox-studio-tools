@@ -20,9 +20,8 @@ The package locates the official `StudioMCP` command on Windows and macOS. MCP t
 
 - Cross-platform StudioMCP path detection for Windows and macOS
 - Pi command: `/roblox-studio-mcp-status`
-- Pi tool: `roblox_studio_mcp_status`
-- Pi tool: `roblox_studio_mcp_list_tools` for on-demand MCP `tools/list`
-- Pi tool: `roblox_studio_mcp_call_tool` for full on-demand MCP `tools/call`
+- Pi tool: `roblox_studio_mcp_status` with initialize probe
+- Distinguishes missing StudioMCP from installed-but-not-callable states
 - No persistent MCP process by default
 - TypeScript-first Pi package structure
 
@@ -56,11 +55,9 @@ The agent can also call:
 
 ```txt
 roblox_studio_mcp_status
-roblox_studio_mcp_list_tools
-roblox_studio_mcp_call_tool
 ```
 
-When StudioMCP reports an inactive Studio, pass `activeStudioId` to set the target Studio in the same on-demand MCP process before the requested tool runs.
+Status output reports whether StudioMCP was found and whether initialize succeeded.
 
 ## StudioMCP paths
 

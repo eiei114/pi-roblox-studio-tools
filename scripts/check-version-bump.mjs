@@ -39,7 +39,7 @@ function assertValidGitRef(ref) {
 }
 
 function parseSemver(v) {
-  const m = /^(\d+)\.(\d+)\.(\d+)/.exec(String(v).trim());
+  const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(String(v).trim());
   if (!m) return null;
   return [Number(m[1]), Number(m[2]), Number(m[3])];
 }

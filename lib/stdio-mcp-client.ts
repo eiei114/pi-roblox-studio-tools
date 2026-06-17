@@ -45,6 +45,7 @@ interface PendingRequest {
 
 const DEFAULT_TIMEOUT_MS = 5000;
 const MCP_PROTOCOL_VERSION = "2024-11-05";
+const CLIENT_INFO = { name: "pi-roblox-studio-tools", version: "0.2.0" } as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -204,7 +205,7 @@ export async function probeStudioMcpInitialize(
     const initializeResponse = await sendRequest("initialize", {
       protocolVersion: MCP_PROTOCOL_VERSION,
       capabilities: {},
-      clientInfo: { name: "pi-roblox-studio-tools", version: "0.2.0" },
+      clientInfo: CLIENT_INFO,
     });
 
     writeMessage(child, { jsonrpc: "2.0", method: "notifications/initialized" });
@@ -355,7 +356,7 @@ export async function runOneShotMcpRequests(
     await sendRequest("initialize", {
       protocolVersion: MCP_PROTOCOL_VERSION,
       capabilities: {},
-      clientInfo: { name: "pi-roblox-studio-tools", version: "0.1.0" },
+      clientInfo: CLIENT_INFO,
     });
 
     writeMessage(child, { jsonrpc: "2.0", method: "notifications/initialized" });

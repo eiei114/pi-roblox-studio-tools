@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
 
+## [0.2.1] - 2026-06-18
+
+### Fixed
+
+- Hardened the version-bump guard against unsafe `BASE_REF` values by validating refs and invoking Git without a shell.
+- Tightened StudioMCP JSON-RPC response validation so malformed success and error payloads are rejected before resolving requests.
+
 ## [0.2.0] - 2026-06-17
 
 ### Added

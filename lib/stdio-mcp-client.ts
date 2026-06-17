@@ -45,9 +45,20 @@ interface PendingRequest {
 
 const DEFAULT_TIMEOUT_MS = 5000;
 const MCP_PROTOCOL_VERSION = "2024-11-05";
+const CLIENT_INFO = { name: "pi-roblox-studio-tools", version: "0.2.0" } as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function resolveJsonRpcResponse(parsed: Record<string, unknown>): JsonRpcResponse | null {
+  if ("error" in parsed && isRecord(parsed.error)) {
+    return parsed as unknown as JsonRpcFailure;
+  }
+  if ("result" in parsed) {
+    return parsed as unknown as JsonRpcSuccess;
+  }
+  return null;
 }
 
 function makeSpawnCommand(command: StudioMcpCommand): { command: string; args: string[] } {
@@ -65,6 +76,149 @@ function writeMessage(child: ChildProcessWithoutNullStreams, message: unknown): 
 
 function formatJsonRpcError(response: JsonRpcFailure): Error {
   return new Error(`MCP error ${response.error.code}: ${response.error.message}`);
+}
+
+export interface StudioMcpInitializeProbeResult {
+  ok: boolean;
+  serverInfo?: unknown;
+  stderr: string;
+  error?: string;
+}
+
+export async function probeStudioMcpInitialize(
+  command: StudioMcpCommand,
+  options: OneShotMcpOptions = {},
+): Promise<StudioMcpInitializeProbeResult> {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const spawnCommand = makeSpawnCommand(command);
+  const child = spawn(spawnCommand.command, spawnCommand.args, {
+    stdio: "pipe",
+    windowsHide: true,
+  });
+
+  options.onProcess?.(child);
+
+  let nextId = 1;
+  let stdoutBuffer = "";
+  let stderr = "";
+  const pending = new Map<number, PendingRequest>();
+
+  const cleanup = async (): Promise<void> => {
+    options.onProcessExit?.(child);
+    child.stdin.end();
+
+    if (child.exitCode !== null || child.killed) return;
+
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(() => {
+        if (child.exitCode === null && !child.killed) child.kill();
+        resolve();
+      }, 250);
+      child.once("exit", () => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
+  };
+
+  const failAll = (error: Error): void => {
+    for (const request of pending.values()) request.reject(error);
+    pending.clear();
+  };
+
+  child.stdout.on("data", (chunk: Buffer) => {
+    stdoutBuffer += chunk.toString("utf8");
+
+    while (true) {
+      const newlineIndex = stdoutBuffer.indexOf("\n");
+      if (newlineIndex === -1) break;
+
+      const line = stdoutBuffer.slice(0, newlineIndex).trim();
+      stdoutBuffer = stdoutBuffer.slice(newlineIndex + 1);
+      if (!line) continue;
+
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(line);
+      } catch {
+        failAll(new Error(`Invalid MCP JSON line: ${line}`));
+        continue;
+      }
+
+      if (!isRecord(parsed) || typeof parsed.id !== "number") continue;
+
+      const request = pending.get(parsed.id);
+      if (!request) continue;
+      pending.delete(parsed.id);
+
+      const response = resolveJsonRpcResponse(parsed);
+      if (!response) {
+        request.reject(new Error(`Invalid MCP JSON-RPC response (missing result or error): ${line}`));
+        continue;
+      }
+      request.resolve(response);
+    }
+  });
+
+  child.stderr.on("data", (chunk: Buffer) => {
+    stderr += chunk.toString("utf8");
+    if (stderr.length > 20_000) stderr = stderr.slice(-20_000);
+  });
+
+  child.on("error", (error) => failAll(error));
+  child.on("exit", (code, signal) => {
+    if (pending.size > 0) {
+      failAll(new Error(`StudioMCP exited before response (code=${code ?? "null"}, signal=${signal ?? "null"}). ${stderr}`));
+    }
+  });
+
+  const abort = (): void => {
+    failAll(new Error("MCP request aborted"));
+    if (child.exitCode === null && !child.killed) child.kill();
+  };
+
+  if (options.signal?.aborted) abort();
+  options.signal?.addEventListener("abort", abort, { once: true });
+
+  const sendRequest = async <R = unknown>(requestMethod: string, requestParams?: unknown): Promise<JsonRpcSuccess<R>> => {
+    const id = nextId++;
+    const responsePromise = new Promise<JsonRpcResponse<R>>((resolve, reject) => {
+      pending.set(id, { resolve: resolve as (response: JsonRpcResponse) => void, reject });
+    });
+
+    writeMessage(child, { jsonrpc: "2.0", id, method: requestMethod, params: requestParams });
+
+    const timeoutPromise = new Promise<never>((_resolve, reject) => {
+      const timer = setTimeout(() => {
+        pending.delete(id);
+        reject(new Error(`Timed out waiting for MCP ${requestMethod} after ${timeoutMs}ms`));
+      }, timeoutMs);
+      responsePromise.finally(() => clearTimeout(timer)).catch(() => clearTimeout(timer));
+    });
+
+    const response = await Promise.race([responsePromise, timeoutPromise]);
+    if ("error" in response) throw formatJsonRpcError(response);
+    return response;
+  };
+
+  try {
+    const initializeResponse = await sendRequest("initialize", {
+      protocolVersion: MCP_PROTOCOL_VERSION,
+      capabilities: {},
+      clientInfo: CLIENT_INFO,
+    });
+
+    writeMessage(child, { jsonrpc: "2.0", method: "notifications/initialized" });
+
+    const serverInfo = isRecord(initializeResponse.result) ? initializeResponse.result.serverInfo : undefined;
+    return { ok: true, serverInfo, stderr };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { ok: false, stderr, error: message };
+  } finally {
+    options.signal?.removeEventListener("abort", abort);
+    await cleanup();
+  }
 }
 
 export async function runOneShotMcpRequest<T = unknown>(
@@ -147,7 +301,13 @@ export async function runOneShotMcpRequests(
       const request = pending.get(parsed.id);
       if (!request) continue;
       pending.delete(parsed.id);
-      request.resolve(parsed as unknown as JsonRpcResponse);
+
+      const response = resolveJsonRpcResponse(parsed);
+      if (!response) {
+        request.reject(new Error(`Invalid MCP JSON-RPC response (missing result or error): ${line}`));
+        continue;
+      }
+      request.resolve(response);
     }
   });
 
@@ -196,7 +356,7 @@ export async function runOneShotMcpRequests(
     await sendRequest("initialize", {
       protocolVersion: MCP_PROTOCOL_VERSION,
       capabilities: {},
-      clientInfo: { name: "pi-roblox-studio-tools", version: "0.1.0" },
+      clientInfo: CLIENT_INFO,
     });
 
     writeMessage(child, { jsonrpc: "2.0", method: "notifications/initialized" });

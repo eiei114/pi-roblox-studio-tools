@@ -1,9 +1,12 @@
 import { access } from "node:fs/promises";
 import { constants } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, win32 } from "node:path";
+import { probeStudioMcpInitialize } from "./stdio-mcp-client.ts";
 
 export type SupportedPlatform = "win32" | "darwin";
+
+export type StudioMcpReadiness = "unsupported" | "not_found" | "found_not_callable" | "callable";
 
 export interface StudioMcpCommand {
   command: string;
@@ -15,9 +18,12 @@ export interface StudioMcpStatus {
   supported: boolean;
   platform: NodeJS.Platform;
   found: boolean;
+  callable: boolean;
+  readiness: StudioMcpReadiness;
   command?: StudioMcpCommand;
   checked: string[];
   message: string;
+  probeError?: string;
 }
 
 function windowsCandidates(env: NodeJS.ProcessEnv): StudioMcpCommand[] {
@@ -26,12 +32,12 @@ function windowsCandidates(env: NodeJS.ProcessEnv): StudioMcpCommand[] {
 
   if (localAppData) {
     candidates.push({
-      command: join(localAppData, "Roblox", "mcp.bat"),
+      command: win32.join(localAppData, "Roblox", "mcp.bat"),
       args: [],
       source: "%LOCALAPPDATA%\\Roblox\\mcp.bat",
     });
     candidates.push({
-      command: join(localAppData, "Roblox Studio", "StudioMCP.exe"),
+      command: win32.join(localAppData, "Roblox Studio", "StudioMCP.exe"),
       args: [],
       source: "%LOCALAPPDATA%\\Roblox Studio\\StudioMCP.exe",
     });
@@ -78,10 +84,57 @@ export async function pathExists(path: string): Promise<boolean> {
   }
 }
 
+function notFoundStatus(platform: NodeJS.Platform, checked: string[]): StudioMcpStatus {
+  return {
+    supported: true,
+    platform,
+    found: false,
+    callable: false,
+    readiness: "not_found",
+    checked,
+    message:
+      "Roblox Studio MCP command was not found. Install or update Roblox Studio, then run /roblox-studio-mcp-status again.",
+  };
+}
+
+function foundNotCallableStatus(
+  platform: NodeJS.Platform,
+  command: StudioMcpCommand,
+  checked: string[],
+  probeError: string,
+): StudioMcpStatus {
+  return {
+    supported: true,
+    platform,
+    found: true,
+    callable: false,
+    readiness: "found_not_callable",
+    command,
+    checked,
+    probeError,
+    message: `Roblox Studio MCP was found at ${command.command} but did not respond to initialize. Open Roblox Studio, ensure the MCP bridge is enabled, then retry.`,
+  };
+}
+
+function callableStatus(platform: NodeJS.Platform, command: StudioMcpCommand, checked: string[]): StudioMcpStatus {
+  return {
+    supported: true,
+    platform,
+    found: true,
+    callable: true,
+    readiness: "callable",
+    command,
+    checked,
+    message: `Roblox Studio MCP was found at ${command.command} and responds to initialize.`,
+  };
+}
+
 export async function resolveStudioMcpCommand(options: {
   platform?: NodeJS.Platform;
   env?: NodeJS.ProcessEnv;
   exists?: (path: string) => Promise<boolean>;
+  probe?: (command: StudioMcpCommand) => Promise<{ ok: boolean; error?: string }>;
+  probeTimeoutMs?: number;
 } = {}): Promise<StudioMcpStatus> {
   const platform = options.platform ?? process.platform;
   const exists = options.exists ?? pathExists;
@@ -93,29 +146,28 @@ export async function resolveStudioMcpCommand(options: {
       supported: false,
       platform,
       found: false,
+      callable: false,
+      readiness: "unsupported",
       checked,
       message: "Roblox Studio MCP is supported on Windows and macOS only.",
     };
   }
 
   for (const candidate of candidates) {
-    if (await exists(candidate.command)) {
-      return {
-        supported: true,
-        platform,
-        found: true,
-        command: candidate,
-        checked,
-        message: `Found Roblox Studio MCP at ${candidate.command}`,
-      };
-    }
+    if (!(await exists(candidate.command))) continue;
+
+    const probe =
+      options.probe ??
+      (async (command) => {
+        const result = await probeStudioMcpInitialize(command, { timeoutMs: options.probeTimeoutMs ?? 5000 });
+        return result.ok ? { ok: true } : { ok: false, error: result.error ?? "StudioMCP initialize probe failed." };
+      });
+
+    const probeResult = await probe(candidate);
+    if (probeResult.ok) return callableStatus(platform, candidate, checked);
+
+    return foundNotCallableStatus(platform, candidate, checked, probeResult.error ?? "StudioMCP initialize probe failed.");
   }
 
-  return {
-    supported: true,
-    platform,
-    found: false,
-    checked,
-    message: "Roblox Studio MCP command was not found. Install or update Roblox Studio.",
-  };
+  return notFoundStatus(platform, checked);
 }

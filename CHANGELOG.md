@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
 
+## [0.2.0] - 2026-06-17
+
+### Added
+
+- StudioMCP status now runs a lightweight initialize probe and reports `callable` / `readiness`.
+- Status messages distinguish missing StudioMCP from installed-but-not-callable environments.
+
+### Changed
+
+- First public slice exposes only `/roblox-studio-mcp-status` and `roblox_studio_mcp_status`.
+- Generic on-demand `tools/list` and `tools/call` wrappers are deferred to later slices.
+
+### Chores
+
+- Added `version:check` PR guard support: package script + `scripts/check-version-bump.mjs`.
+- Added CI verification that publishable changes must bump `package.json` and update `CHANGELOG.md` in the same PR.
+
 ## [0.1.0] - 2026-05-29
 
 ### Added

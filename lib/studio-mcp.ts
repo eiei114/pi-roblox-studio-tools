@@ -1,7 +1,7 @@
 import { access } from "node:fs/promises";
 import { constants } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, win32 } from "node:path";
 import { probeStudioMcpInitialize } from "./stdio-mcp-client.ts";
 
 export type SupportedPlatform = "win32" | "darwin";
@@ -32,12 +32,12 @@ function windowsCandidates(env: NodeJS.ProcessEnv): StudioMcpCommand[] {
 
   if (localAppData) {
     candidates.push({
-      command: join(localAppData, "Roblox", "mcp.bat"),
+      command: win32.join(localAppData, "Roblox", "mcp.bat"),
       args: [],
       source: "%LOCALAPPDATA%\\Roblox\\mcp.bat",
     });
     candidates.push({
-      command: join(localAppData, "Roblox Studio", "StudioMCP.exe"),
+      command: win32.join(localAppData, "Roblox Studio", "StudioMCP.exe"),
       args: [],
       source: "%LOCALAPPDATA%\\Roblox Studio\\StudioMCP.exe",
     });

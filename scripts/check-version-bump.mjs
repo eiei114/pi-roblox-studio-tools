@@ -26,8 +26,16 @@ const TEMPLATE_DEFAULT = [
   "package.json",
 ];
 
+const VALID_GIT_REF = /^[A-Za-z0-9._/-]+$/;
+
 function run(cmd) {
   return execSync(cmd, { encoding: "utf8" }).trim();
+}
+
+function assertValidGitRef(ref) {
+  if (!VALID_GIT_REF.test(ref)) {
+    throw new Error(`Invalid BASE_REF: ${ref}`);
+  }
 }
 
 function parseSemver(v) {
@@ -39,7 +47,8 @@ function parseSemver(v) {
 function compareSemver(a, b) {
   const va = parseSemver(a);
   const vb = parseSemver(b);
-  if (!va || !vb) return 0;
+  if (!va) throw new Error(`Malformed semver: ${a}`);
+  if (!vb) throw new Error(`Malformed semver: ${b}`);
   for (let i = 0; i < 3; i++) {
     if (va[i] !== vb[i]) return va[i] - vb[i];
   }
@@ -48,7 +57,9 @@ function compareSemver(a, b) {
 
 function readPackageVersion(ref) {
   const raw = run(`git show ${ref}:package.json`);
-  return JSON.parse(raw).version;
+  const pkg = JSON.parse(raw);
+  if (!pkg.version) throw new Error(`${ref}:package.json missing version field`);
+  return pkg.version;
 }
 
 function loadPublishablePaths() {
@@ -77,6 +88,7 @@ function isPublishablePath(file, publishable) {
 }
 
 const baseRef = process.env.BASE_REF ?? "origin/main";
+assertValidGitRef(baseRef);
 const publishable = loadPublishablePaths();
 
 let changed;
@@ -95,7 +107,12 @@ if (!publishableChanged) {
 }
 
 const baseVersion = readPackageVersion(baseRef);
-const headVersion = JSON.parse(readFileSync("package.json", "utf8")).version;
+const headPkg = JSON.parse(readFileSync("package.json", "utf8"));
+if (!headPkg.version) {
+  console.error("version:check fail — package.json missing version field");
+  process.exit(1);
+}
+const headVersion = headPkg.version;
 
 if (compareSemver(headVersion, baseVersion) <= 0) {
   console.error(

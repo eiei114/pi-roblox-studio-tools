@@ -50,6 +50,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+function resolveJsonRpcResponse(parsed: Record<string, unknown>): JsonRpcResponse | null {
+  if ("error" in parsed && isRecord(parsed.error)) {
+    return parsed as unknown as JsonRpcFailure;
+  }
+  if ("result" in parsed) {
+    return parsed as unknown as JsonRpcSuccess;
+  }
+  return null;
+}
+
 function makeSpawnCommand(command: StudioMcpCommand): { command: string; args: string[] } {
   if (process.platform !== "win32") return command;
 
@@ -139,7 +149,13 @@ export async function probeStudioMcpInitialize(
       const request = pending.get(parsed.id);
       if (!request) continue;
       pending.delete(parsed.id);
-      request.resolve(parsed as unknown as JsonRpcResponse);
+
+      const response = resolveJsonRpcResponse(parsed);
+      if (!response) {
+        request.reject(new Error(`Invalid MCP JSON-RPC response (missing result or error): ${line}`));
+        continue;
+      }
+      request.resolve(response);
     }
   });
 
@@ -284,7 +300,13 @@ export async function runOneShotMcpRequests(
       const request = pending.get(parsed.id);
       if (!request) continue;
       pending.delete(parsed.id);
-      request.resolve(parsed as unknown as JsonRpcResponse);
+
+      const response = resolveJsonRpcResponse(parsed);
+      if (!response) {
+        request.reject(new Error(`Invalid MCP JSON-RPC response (missing result or error): ${line}`));
+        continue;
+      }
+      request.resolve(response);
     }
   });
 

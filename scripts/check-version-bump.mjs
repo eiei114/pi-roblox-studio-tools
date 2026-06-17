@@ -34,7 +34,8 @@ function run(cmd) {
 
 function assertValidGitRef(ref) {
   if (!VALID_GIT_REF.test(ref)) {
-    throw new Error(`Invalid BASE_REF: ${ref}`);
+    console.error(`version:check fail — invalid BASE_REF format: ${ref}`);
+    process.exit(1);
   }
 }
 

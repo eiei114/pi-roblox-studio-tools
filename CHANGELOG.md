@@ -16,7 +16,9 @@ This project follows semantic versioning.
 - First public slice exposes only `/roblox-studio-mcp-status` and `roblox_studio_mcp_status`.
 - Generic on-demand `tools/list` and `tools/call` wrappers are deferred to later slices.
 
-### Chores
+## [0.1.1] - 2026-06-04
+
+### Changed
 
 - Added `version:check` PR guard support: package script + `scripts/check-version-bump.mjs`.
 - Added CI verification that publishable changes must bump `package.json` and update `CHANGELOG.md` in the same PR.

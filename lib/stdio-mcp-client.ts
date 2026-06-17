@@ -61,6 +61,17 @@ function resolveJsonRpcResponse(parsed: Record<string, unknown>): JsonRpcRespons
   return null;
 }
 
+function assertJsonRpcSuccess<R>(response: JsonRpcResponse<R>, requestMethod: string): JsonRpcSuccess<R> {
+  if (!isRecord(response) || typeof response.id !== "number") {
+    throw new Error(`Invalid MCP response for ${requestMethod}`);
+  }
+  if ("error" in response) throw formatJsonRpcError(response as JsonRpcFailure);
+  if (!("result" in response)) {
+    throw new Error(`Invalid MCP response for ${requestMethod}: missing result`);
+  }
+  return response as JsonRpcSuccess<R>;
+}
+
 function makeSpawnCommand(command: StudioMcpCommand): { command: string; args: string[] } {
   if (process.platform !== "win32") return command;
 
@@ -197,8 +208,7 @@ export async function probeStudioMcpInitialize(
     });
 
     const response = await Promise.race([responsePromise, timeoutPromise]);
-    if ("error" in response) throw formatJsonRpcError(response);
-    return response;
+    return assertJsonRpcSuccess(response, requestMethod);
   };
 
   try {
@@ -348,8 +358,7 @@ export async function runOneShotMcpRequests(
     });
 
     const response = await Promise.race([responsePromise, timeoutPromise]);
-    if ("error" in response) throw formatJsonRpcError(response);
-    return response;
+    return assertJsonRpcSuccess(response, requestMethod);
   };
 
   try {

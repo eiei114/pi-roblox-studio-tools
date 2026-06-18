@@ -9,7 +9,7 @@
  *   node scripts/check-version-bump.mjs
  *   BASE_REF=origin/main node scripts/check-version-bump.mjs
  */
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 
 const TEMPLATE_DEFAULT = [
@@ -28,27 +28,43 @@ const TEMPLATE_DEFAULT = [
 
 const VALID_GIT_REF = /^[A-Za-z0-9._/-]+$/;
 
-function run(cmd) {
-  return execSync(cmd, { encoding: "utf8" }).trim();
+function runGit(args) {
+  return execFileSync("git", args, { encoding: "utf8" }).trim();
+}
+
+function fail(message) {
+  console.error(`version:check fail — ${message}`);
+  process.exit(1);
 }
 
 function assertValidGitRef(ref) {
-  if (!VALID_GIT_REF.test(ref)) {
-    throw new Error(`Invalid BASE_REF: ${ref}`);
+  if (
+    typeof ref !== "string" ||
+    ref.length === 0 ||
+    ref.startsWith("-") ||
+    ref.startsWith(".") ||
+    ref.includes("..") ||
+    ref.includes("//") ||
+    ref.endsWith("/") ||
+    ref.endsWith(".lock") ||
+    !VALID_GIT_REF.test(ref)
+  ) {
+    throw new Error(`Invalid BASE_REF format: ${ref}`);
   }
 }
 
-function parseSemver(v) {
-  const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(String(v).trim());
-  if (!m) return null;
+function parseSemver(v, context) {
+  if (typeof v !== "string" || v.trim().length === 0) {
+    throw new Error(`${context} is missing a valid version string`);
+  }
+  const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(v.trim());
+  if (!m) throw new Error(`${context} has malformed semver: ${v}`);
   return [Number(m[1]), Number(m[2]), Number(m[3])];
 }
 
 function compareSemver(a, b) {
-  const va = parseSemver(a);
-  const vb = parseSemver(b);
-  if (!va) throw new Error(`Malformed semver: ${a}`);
-  if (!vb) throw new Error(`Malformed semver: ${b}`);
+  const va = parseSemver(a, "head package.json version");
+  const vb = parseSemver(b, "base package.json version");
   for (let i = 0; i < 3; i++) {
     if (va[i] !== vb[i]) return va[i] - vb[i];
   }
@@ -56,9 +72,11 @@ function compareSemver(a, b) {
 }
 
 function readPackageVersion(ref) {
-  const raw = run(`git show ${ref}:package.json`);
+  const raw = runGit(["show", `${ref}:package.json`]);
   const pkg = JSON.parse(raw);
-  if (!pkg.version) throw new Error(`${ref}:package.json missing version field`);
+  if (typeof pkg.version !== "string" || pkg.version.trim().length === 0) {
+    throw new Error(`${ref}:package.json is missing a valid version field`);
+  }
   return pkg.version;
 }
 
@@ -88,13 +106,17 @@ function isPublishablePath(file, publishable) {
 }
 
 const baseRef = process.env.BASE_REF ?? "origin/main";
-assertValidGitRef(baseRef);
+try {
+  assertValidGitRef(baseRef);
+} catch (error) {
+  fail(error instanceof Error ? error.message : String(error));
+}
 const publishable = loadPublishablePaths();
 
 let changed;
 try {
-  run(`git rev-parse --verify ${baseRef}`);
-  changed = run(`git diff --name-only ${baseRef}...HEAD`).split("\n").filter(Boolean);
+  runGit(["rev-parse", "--verify", `${baseRef}^{commit}`]);
+  changed = runGit(["diff", "--name-only", `${baseRef}...HEAD`]).split("\n").filter(Boolean);
 } catch {
   console.log("version:check skip — base ref not available (local run?)");
   process.exit(0);
@@ -106,15 +128,27 @@ if (!publishableChanged) {
   process.exit(0);
 }
 
-const baseVersion = readPackageVersion(baseRef);
+let baseVersion;
+try {
+  baseVersion = readPackageVersion(baseRef);
+} catch (error) {
+  fail(error instanceof Error ? error.message : String(error));
+}
+
 const headPkg = JSON.parse(readFileSync("package.json", "utf8"));
-if (!headPkg.version) {
-  console.error("version:check fail — package.json missing version field");
-  process.exit(1);
+if (typeof headPkg.version !== "string" || headPkg.version.trim().length === 0) {
+  fail("package.json is missing a valid version field");
 }
 const headVersion = headPkg.version;
 
-if (compareSemver(headVersion, baseVersion) <= 0) {
+let versionDelta;
+try {
+  versionDelta = compareSemver(headVersion, baseVersion);
+} catch (error) {
+  fail(error instanceof Error ? error.message : String(error));
+}
+
+if (versionDelta <= 0) {
   console.error(
     `version:check fail — publishable files changed but package.json version did not increase (${baseVersion} -> ${headVersion}). Bump patch/minor/major per issue metadata.`,
   );

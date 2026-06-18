@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
 
+## [0.2.1] - 2026-06-18
+
+### Fixed
+
+- Hardened JSON-RPC response validation in `lib/stdio-mcp-client.ts` (`assertJsonRpcSuccess`).
+- Reordered `CHANGELOG.md` to reverse chronological order.
+- Aligned `scripts/check-version-bump.mjs` `BASE_REF` validation error output with `version:check` conventions.
+
 ## [0.2.0] - 2026-06-17
 
 ### Added

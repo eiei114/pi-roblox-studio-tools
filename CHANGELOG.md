@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
 
+## [0.2.2] - 2026-06-19
+
+### Fixed
+
+- Strengthened `assertJsonRpcSuccess` JSON-RPC validation in `lib/stdio-mcp-client.ts` (DOT-244 follow-up).
+
 ## [0.2.1] - 2026-06-18
 
 ### Fixed

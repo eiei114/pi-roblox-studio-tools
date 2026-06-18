@@ -4,12 +4,20 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
 
+## [0.2.2] - 2026-06-19
+
+### Fixed
+
+- Strengthened `assertJsonRpcSuccess` JSON-RPC validation in `lib/stdio-mcp-client.ts` (DOT-244 follow-up).
+
 ## [0.2.1] - 2026-06-18
 
 ### Fixed
 
 - Hardened the version-bump guard against unsafe `BASE_REF` values by validating refs and invoking Git without a shell.
-- Tightened StudioMCP JSON-RPC response validation so malformed success and error payloads are rejected before resolving requests.
+- Tightened StudioMCP JSON-RPC response validation in `lib/stdio-mcp-client.ts` (`assertJsonRpcSuccess`) so malformed success and error payloads are rejected before resolving requests.
+- Reordered `CHANGELOG.md` to reverse chronological order.
+- Aligned `scripts/check-version-bump.mjs` `BASE_REF` validation error output with `version:check` conventions.
 
 ## [0.2.0] - 2026-06-17
 

@@ -85,6 +85,34 @@ function invalidJsonRpcResponseError(reason: string, line: string): Error {
   return new Error(`Invalid MCP JSON-RPC response (${reason}): ${line}`);
 }
 
+function assertJsonRpcSuccess<R>(
+  response: unknown,
+  requestMethod: string,
+): asserts response is JsonRpcSuccess<R> {
+  if (!isRecord(response)) {
+    throw new Error(`Invalid MCP response for ${requestMethod}: not an object`);
+  }
+  if (typeof response.id !== "number") {
+    throw new Error(`Invalid MCP response for ${requestMethod}: id must be a number`);
+  }
+  if ("error" in response) {
+    const error = response.error;
+    if (!isRecord(error)) {
+      throw new Error(`Invalid MCP response for ${requestMethod}: error must be an object`);
+    }
+    if (typeof error.code !== "number") {
+      throw new Error(`Invalid MCP response for ${requestMethod}: error.code must be a number`);
+    }
+    if (typeof error.message !== "string") {
+      throw new Error(`Invalid MCP response for ${requestMethod}: error.message must be a string`);
+    }
+    throw formatJsonRpcError(response as unknown as JsonRpcFailure);
+  }
+  if (!("result" in response)) {
+    throw new Error(`Invalid MCP response for ${requestMethod}: missing result`);
+  }
+}
+
 function makeSpawnCommand(command: StudioMcpCommand): { command: string; args: string[] } {
   if (process.platform !== "win32") return command;
 
@@ -224,7 +252,7 @@ export async function probeStudioMcpInitialize(
     });
 
     const response = await Promise.race([responsePromise, timeoutPromise]);
-    if ("error" in response) throw formatJsonRpcError(response);
+    assertJsonRpcSuccess<R>(response, requestMethod);
     return response;
   };
 
@@ -378,7 +406,7 @@ export async function runOneShotMcpRequests(
     });
 
     const response = await Promise.race([responsePromise, timeoutPromise]);
-    if ("error" in response) throw formatJsonRpcError(response);
+    assertJsonRpcSuccess<R>(response, requestMethod);
     return response;
   };
 

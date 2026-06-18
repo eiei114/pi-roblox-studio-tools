@@ -51,14 +51,38 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function resolveJsonRpcResponse(parsed: Record<string, unknown>): JsonRpcResponse | null {
-  if ("error" in parsed && isRecord(parsed.error)) {
+function parseJsonRpcResponse(parsed: Record<string, unknown>): JsonRpcResponse {
+  if (parsed.jsonrpc !== "2.0") {
+    throw new Error("jsonrpc must be \"2.0\"");
+  }
+  if (typeof parsed.id !== "number") {
+    throw new Error("id must be a number");
+  }
+
+  const hasResult = Object.hasOwn(parsed, "result");
+  const hasError = Object.hasOwn(parsed, "error");
+  if (hasResult === hasError) {
+    throw new Error("response must contain exactly one of result or error");
+  }
+
+  if (hasError) {
+    if (!isRecord(parsed.error)) {
+      throw new Error("error must be an object");
+    }
+    if (typeof parsed.error.code !== "number") {
+      throw new Error("error.code must be a number");
+    }
+    if (typeof parsed.error.message !== "string") {
+      throw new Error("error.message must be a string");
+    }
     return parsed as unknown as JsonRpcFailure;
   }
-  if ("result" in parsed) {
-    return parsed as unknown as JsonRpcSuccess;
-  }
-  return null;
+
+  return parsed as unknown as JsonRpcSuccess;
+}
+
+function invalidJsonRpcResponseError(reason: string, line: string): Error {
+  return new Error(`Invalid MCP JSON-RPC response (${reason}): ${line}`);
 }
 
 function assertJsonRpcSuccess<R>(
@@ -179,9 +203,12 @@ export async function probeStudioMcpInitialize(
       if (!request) continue;
       pending.delete(parsed.id);
 
-      const response = resolveJsonRpcResponse(parsed);
-      if (!response) {
-        request.reject(new Error(`Invalid MCP JSON-RPC response (missing result or error): ${line}`));
+      let response: JsonRpcResponse;
+      try {
+        response = parseJsonRpcResponse(parsed);
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        request.reject(invalidJsonRpcResponseError(reason, line));
         continue;
       }
       request.resolve(response);
@@ -330,9 +357,12 @@ export async function runOneShotMcpRequests(
       if (!request) continue;
       pending.delete(parsed.id);
 
-      const response = resolveJsonRpcResponse(parsed);
-      if (!response) {
-        request.reject(new Error(`Invalid MCP JSON-RPC response (missing result or error): ${line}`));
+      let response: JsonRpcResponse;
+      try {
+        response = parseJsonRpcResponse(parsed);
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        request.reject(invalidJsonRpcResponseError(reason, line));
         continue;
       }
       request.resolve(response);

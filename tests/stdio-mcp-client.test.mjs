@@ -66,6 +66,55 @@ test("runOneShotMcpRequest surfaces JSON-RPC errors", async () => {
     /MCP error -32601: Method not found/,
   );
 });
+
+test("runOneShotMcpRequest rejects incomplete JSON-RPC responses", async () => {
+  const incompleteServer = String.raw`
+const readline = require("node:readline");
+const rl = readline.createInterface({ input: process.stdin });
+rl.on("line", (line) => {
+  const message = JSON.parse(line);
+  if (message.id !== undefined) console.log(JSON.stringify({ jsonrpc: "2.0", id: message.id }));
+});
+`;
+
+  await assert.rejects(
+    () =>
+      runOneShotMcpRequest(
+        { command: process.execPath, args: ["-e", incompleteServer], source: "node incomplete server" },
+        "tools/list",
+        undefined,
+        { timeoutMs: 2000 },
+      ),
+    /Invalid MCP JSON-RPC response \(response must contain exactly one of result or error\)/,
+  );
+});
+
+test("runOneShotMcpRequest rejects malformed JSON-RPC error responses", async () => {
+  const malformedErrorServer = String.raw`
+const readline = require("node:readline");
+const rl = readline.createInterface({ input: process.stdin });
+rl.on("line", (line) => {
+  const message = JSON.parse(line);
+  if (message.method === "initialize") {
+    console.log(JSON.stringify({ jsonrpc: "2.0", id: message.id, result: {} }));
+    return;
+  }
+  if (message.id !== undefined) console.log(JSON.stringify({ jsonrpc: "2.0", id: message.id, error: { message: "missing code" } }));
+});
+`;
+
+  await assert.rejects(
+    () =>
+      runOneShotMcpRequest(
+        { command: process.execPath, args: ["-e", malformedErrorServer], source: "node malformed error server" },
+        "tools/list",
+        undefined,
+        { timeoutMs: 2000 },
+      ),
+    /Invalid MCP JSON-RPC response \(error\.code must be a number\)/,
+  );
+});
+
 test("runOneShotMcpRequests supports multiple requests in one process", async () => {
   const result = await runOneShotMcpRequests(
     { command: process.execPath, args: ["-e", fakeServer], source: "node fake server" },

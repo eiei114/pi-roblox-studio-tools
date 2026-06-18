@@ -8,7 +8,8 @@ This project follows semantic versioning.
 
 ### Fixed
 
-- Hardened JSON-RPC response validation in `lib/stdio-mcp-client.ts` (`assertJsonRpcSuccess`).
+- Hardened the version-bump guard against unsafe `BASE_REF` values by validating refs and invoking Git without a shell.
+- Tightened StudioMCP JSON-RPC response validation in `lib/stdio-mcp-client.ts` (`assertJsonRpcSuccess`) so malformed success and error payloads are rejected before resolving requests.
 - Reordered `CHANGELOG.md` to reverse chronological order.
 - Aligned `scripts/check-version-bump.mjs` `BASE_REF` validation error output with `version:check` conventions.
 
@@ -24,9 +25,7 @@ This project follows semantic versioning.
 - First public slice exposes only `/roblox-studio-mcp-status` and `roblox_studio_mcp_status`.
 - Generic on-demand `tools/list` and `tools/call` wrappers are deferred to later slices.
 
-## [0.1.1] - 2026-06-04
-
-### Changed
+### Chores
 
 - Added `version:check` PR guard support: package script + `scripts/check-version-bump.mjs`.
 - Added CI verification that publishable changes must bump `package.json` and update `CHANGELOG.md` in the same PR.

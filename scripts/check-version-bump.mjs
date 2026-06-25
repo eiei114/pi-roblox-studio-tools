@@ -4,6 +4,10 @@
  * and CHANGELOG.md must be updated in the same diff.
  *
  * Publishable paths: template defaults + package.json `files` + `pi.extensions`.
+ * package.json itself is treated as a publishable change only when a
+ * shipped-relevant field (dependencies/exports/files/version/...) changes;
+ * devDependencies/scripts/metadata-only edits do not affect the published
+ * package and must not force a version bump + CHANGELOG.
  *
  * Usage:
  *   node scripts/check-version-bump.mjs
@@ -23,7 +27,33 @@ const TEMPLATE_DEFAULT = [
   "README.md",
   "CHANGELOG.md",
   "SECURITY.md",
-  "package.json",
+];
+
+/**
+ * package.json keys whose values affect the published npm artifact. A diff that
+ * only touches other keys (devDependencies, scripts, comments, ...) does not
+ * change what consumers receive and therefore must not require a version bump.
+ */
+const SHIPPED_PKG_KEYS = [
+  "name",
+  "version",
+  "type",
+  "main",
+  "module",
+  "browser",
+  "types",
+  "typings",
+  "bin",
+  "exports",
+  "files",
+  "engines",
+  "publishConfig",
+  "dependencies",
+  "peerDependencies",
+  "optionalDependencies",
+  "bundleDependencies",
+  "bundledDependencies",
+  "pi",
 ];
 
 const VALID_GIT_REF = /^[A-Za-z0-9._/-]+$/;
@@ -105,6 +135,30 @@ function isPublishablePath(file, publishable) {
   );
 }
 
+function readPackageJsonAt(ref) {
+  const raw = runGit(["show", `${ref}:package.json`]);
+  return JSON.parse(raw);
+}
+
+/**
+ * Returns true when a shipped-relevant package.json field differs between the
+ * base ref and the working tree. Fails safe (true) if either side cannot be
+ * read/parsed so the guard never silently approves an unreadable manifest.
+ */
+function shippedPkgFieldsChanged(baseRef) {
+  let base;
+  let head;
+  try {
+    base = readPackageJsonAt(baseRef);
+    head = JSON.parse(readFileSync("package.json", "utf8"));
+  } catch {
+    return true;
+  }
+  return SHIPPED_PKG_KEYS.some(
+    (k) => JSON.stringify(base[k]) !== JSON.stringify(head[k]),
+  );
+}
+
 const baseRef = process.env.BASE_REF ?? "origin/main";
 try {
   assertValidGitRef(baseRef);
@@ -122,7 +176,12 @@ try {
   process.exit(0);
 }
 
-const publishableChanged = changed.some((f) => isPublishablePath(f, publishable));
+// A path-level change (lib/, extensions/, ...) is always publishable. A bare
+// package.json edit is only publishable when a shipped field changed, so
+// devDependencies/metadata-only PRs are not blocked.
+const publishableChanged =
+  changed.some((f) => isPublishablePath(f, publishable)) ||
+  (changed.includes("package.json") && shippedPkgFieldsChanged(baseRef));
 if (!publishableChanged) {
   console.log("version:check ok — no publishable paths changed");
   process.exit(0);

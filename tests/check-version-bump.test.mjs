@@ -35,12 +35,12 @@ function basePackage(overrides = {}) {
   );
 }
 
-function setupRepo() {
+function setupRepo(baseOverrides = {}) {
   const dir = mkdtempSync(join(tmpdir(), "vcheck-"));
   git(dir, ["init", "-q", "-b", "main"]);
   git(dir, ["config", "user.email", "test@example.com"]);
   git(dir, ["config", "user.name", "Test"]);
-  writeFileSync(join(dir, "package.json"), basePackage());
+  writeFileSync(join(dir, "package.json"), basePackage(baseOverrides));
   writeFileSync(
     join(dir, "CHANGELOG.md"),
     "# Changelog\n\n## [0.1.0]\n\n- init\n",
@@ -82,9 +82,9 @@ function runGuard(dir) {
   return result;
 }
 
-function withRepo(scenario) {
+function withRepo(scenario, baseOverrides = {}) {
   return () => {
-    const dir = setupRepo();
+    const dir = setupRepo(baseOverrides);
     try {
       scenario(dir);
     } finally {
@@ -116,6 +116,39 @@ test(
     assert.equal(r.code, 0, `expected pass, stderr=${r.stderr}`);
     assert.match(r.stdout, /no publishable paths changed/);
   }),
+);
+
+test(
+  "package.json metadata-only field change is not publishable",
+  withRepo((dir) => {
+    commitOnBranch(dir, (d) => {
+      // Only non-shipped keys change (description/keywords/scripts); shipped
+      // fields (dependencies/files/version) are untouched.
+      writePackage(d, {
+        description: "metadata-only change",
+        keywords: ["pi-package", "roblox", "test"],
+        scripts: { test: "node --test" },
+      });
+    }, "edit package metadata");
+    const r = runGuard(dir);
+    assert.equal(r.code, 0, `expected pass, stderr=${r.stderr}`);
+    assert.match(r.stdout, /no publishable paths changed/);
+  }),
+);
+
+test(
+  "reordering dependency keys without version change is not publishable",
+  withRepo((dir) => {
+    commitOnBranch(dir, (d) => {
+      // Same dependency set as the base, just declared in reverse order. Must
+      // not be flagged as a shipped-field change (guards against
+      // JSON.stringify key-order sensitivity).
+      writePackage(d, { dependencies: { bar: "^2.0.0", foo: "^1.0.0" } });
+    }, "reorder deps");
+    const r = runGuard(dir);
+    assert.equal(r.code, 0, `expected pass, stderr=${r.stderr}`);
+    assert.match(r.stdout, /no publishable paths changed/);
+  }, { dependencies: { foo: "^1.0.0", bar: "^2.0.0" } }),
 );
 
 test(

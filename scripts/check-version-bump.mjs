@@ -141,6 +141,24 @@ function readPackageJsonAt(ref) {
 }
 
 /**
+ * Recursively sorts object keys so that deep-equality is order-insensitive.
+ * Without this, reordering `dependencies` (e.g. re-sorting alphabetically)
+ * without changing any version would produce a different JSON.stringify output
+ * and falsely trip the publishable-changed check.
+ */
+function canonicalize(value) {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+        .map(([k, v]) => [k, canonicalize(v)]),
+    );
+  }
+  return value;
+}
+
+/**
  * Returns true when a shipped-relevant package.json field differs between the
  * base ref and the working tree. Fails safe (true) if either side cannot be
  * read/parsed so the guard never silently approves an unreadable manifest.
@@ -155,7 +173,9 @@ function shippedPkgFieldsChanged(baseRef) {
     return true;
   }
   return SHIPPED_PKG_KEYS.some(
-    (k) => JSON.stringify(base[k]) !== JSON.stringify(head[k]),
+    (k) =>
+      JSON.stringify(canonicalize(base[k])) !==
+      JSON.stringify(canonicalize(head[k])),
   );
 }
 

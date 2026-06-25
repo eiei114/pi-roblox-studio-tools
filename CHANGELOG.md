@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
 
+## [0.2.3] - 2026-06-26
+
+### Changed
+
+- README install guidance now documents project-local (`-l`), GitHub, and ephemeral `pi -e npm:` paths alongside the existing quick-start flow.
+- Development guidance now documents `npm pack --dry-run` for package-readiness checks aligned with the Pi OSS template baseline.
+
 ## [0.2.2] - 2026-06-19
 
 ### Fixed

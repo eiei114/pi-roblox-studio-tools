@@ -27,14 +27,28 @@ The package locates the official `StudioMCP` command on Windows and macOS. MCP t
 
 ## Install
 
+Install the published npm package with Pi:
+
 ```bash
 pi install npm:pi-roblox-studio-tools
+```
+
+Install into the current project instead of your user Pi settings:
+
+```bash
+pi install npm:pi-roblox-studio-tools -l
 ```
 
 Or install from GitHub:
 
 ```bash
 pi install git:github.com/eiei114/pi-roblox-studio-tools
+```
+
+Try it without permanently installing:
+
+```bash
+pi -e npm:pi-roblox-studio-tools
 ```
 
 ## Quick start
@@ -89,7 +103,10 @@ macOS:
 ```bash
 npm install
 npm run ci
+npm pack --dry-run
 ```
+
+`npm run ci` runs typecheck, tests, and `npm run pack:check` (`npm pack --dry-run`). Run `npm pack --dry-run` directly when you only need to verify the published tarball contents.
 
 ## Release
 

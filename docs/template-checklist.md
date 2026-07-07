@@ -50,6 +50,8 @@
 - [x] `npm run ci` が通る
 - [x] `npm pack --dry-run` が通る
 - [ ] npm Trusted Publisher を `publish.yml` で設定する
+- [ ] `NPM_TOKEN` リポジトリ secret が **未設定** であることを確認する
+- [ ] `npm run publish:guard` が通る（workflow に token 参照がないこと）
 - [ ] `auto-release.yml` + `publish.yml` のペアが揃っていることを確認する
 - [ ] main への version bump で auto-release → publish が通ることを確認する
 

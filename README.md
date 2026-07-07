@@ -6,7 +6,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/pi-roblox-studio-tools.svg)](https://www.npmjs.com/package/pi-roblox-studio-tools)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Pi package](https://img.shields.io/badge/pi-package-purple.svg)](https://pi.dev/packages)
-[![Trusted Publishing](https://img.shields.io/badge/npm-Trusted%20Publishing-blue.svg)](docs/release.md)
+[![npm Provenance](https://img.shields.io/badge/npm-Provenance-blue.svg)](docs/release.md)
 <a href="https://buymeacoffee.com/ekawano114m"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" width="217" height="60"></a>
 
 > On-demand Roblox Studio MCP tools for Pi without a long-running MCP server.
@@ -111,14 +111,16 @@ npm pack --dry-run
 
 ## Release
 
-This package is set up for npm Trusted Publishing, so no `NPM_TOKEN` is required.
+Publishing is authenticated with an npm automation token stored in the
+`NPM_TOKEN` repository secret, and releases are signed with npm provenance.
 
 ```bash
 npm version patch
 git push --follow-tags
 ```
 
-See [`docs/release.md`](docs/release.md) for setup details.
+See [`docs/release.md`](docs/release.md) for the one-time `NPM_TOKEN` setup and
+the `v0.2.4` publish-incident notes.
 
 ## Security
 

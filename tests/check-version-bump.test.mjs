@@ -205,3 +205,45 @@ test(
     assert.match(r.stderr, /version did not increase/);
   }),
 );
+
+test(
+  "docs-only change (release.md) does not require version bump",
+  withRepo((dir) => {
+    commitOnBranch(dir, (d) => {
+      mkdirSync(join(d, "docs"), { recursive: true });
+      writeFileSync(join(d, "docs", "release.md"), "# Release\n\nFix publish path\n");
+    }, "fix docs/release.md");
+    const r = runGuard(dir);
+    assert.equal(r.code, 0, `expected pass, stderr=${r.stderr}`);
+    assert.match(r.stdout, /no publishable paths changed/);
+  }),
+);
+
+test(
+  "docs + .github workflow change does not require version bump",
+  withRepo((dir) => {
+    commitOnBranch(dir, (d) => {
+      mkdirSync(join(d, "docs"), { recursive: true });
+      writeFileSync(join(d, "docs", "release.md"), "# Release\n");
+      mkdirSync(join(d, ".github", "workflows"), { recursive: true });
+      writeFileSync(join(d, ".github", "workflows", "publish.yml"), "name: Publish\n");
+    }, "fix docs + workflow");
+    const r = runGuard(dir);
+    assert.equal(r.code, 0, `expected pass, stderr=${r.stderr}`);
+    assert.match(r.stdout, /no publishable paths changed/);
+  }),
+);
+
+test(
+  "lib/ + docs still requires version bump (runtime code dominates)",
+  withRepo((dir) => {
+    commitOnBranch(dir, (d) => {
+      writeFileSync(join(d, "lib", "index.js"), "module.exports = 2;\n");
+      mkdirSync(join(d, "docs"), { recursive: true });
+      writeFileSync(join(d, "docs", "release.md"), "# Release\n");
+    }, "edit lib + docs");
+    const r = runGuard(dir);
+    assert.equal(r.code, 1, "expected guard to reject lib+docs without bump");
+    assert.match(r.stderr, /version did not increase/);
+  }),
+);

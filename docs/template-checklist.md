@@ -49,8 +49,8 @@
 
 - [x] `npm run ci` が通る
 - [x] `npm pack --dry-run` が通る
-- [ ] npm Trusted Publishingを設定する
-- [ ] `NPM_TOKEN` を使っていないことを確認する
+- [ ] npm Automation tokenを発行し、GitHub repo secret `NPM_TOKEN` を設定する
+- [ ] `npm publish --provenance` と `NODE_AUTH_TOKEN` が `publish.yml` で設定されていることを確認する（npmはtokenless Trusted Publishing非対応）
 - [ ] tag publishを初回リリースで確認する
 
 ## Before first release

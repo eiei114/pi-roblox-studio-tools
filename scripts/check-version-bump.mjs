@@ -135,6 +135,32 @@ function isPublishablePath(file, publishable) {
   );
 }
 
+/**
+ * Files that ship in the tarball but are documentation or repository-release
+ * infrastructure — they describe how to build/publish/contribute, not
+ * consumer runtime behavior (code or package manifest). Editing only these
+ * files must not force a consumer semver bump + CHANGELOG update.
+ *
+ * Mirrors the devDependencies/scripts/metadata exemption: non-runtime
+ * changes are not publishable for semver purposes.
+ */
+const DOC_INFRA_PATHS = [
+  "README.md",
+  "CHANGELOG.md",
+  "CODE_OF_CONDUCT.md",
+  "CONTRIBUTING.md",
+  "SECURITY.md",
+  "LICENSE",
+];
+const DOC_INFRA_PREFIXES = ["docs/", ".github/"];
+
+function isDocumentationOrInfra(file) {
+  return (
+    DOC_INFRA_PATHS.includes(file) ||
+    DOC_INFRA_PREFIXES.some((p) => file.startsWith(p))
+  );
+}
+
 function readPackageJsonAt(ref) {
   const raw = runGit(["show", `${ref}:package.json`]);
   return JSON.parse(raw);
@@ -196,12 +222,18 @@ try {
   process.exit(0);
 }
 
-// A path-level change (lib/, extensions/, ...) is always publishable. A bare
-// package.json edit is only publishable when a shipped field changed, so
-// devDependencies/metadata-only PRs are not blocked.
+// A change to consumer-runtime shipped files (lib/, extensions/, skills/, src/,
+// bin/, package.json shipped fields, etc.) is publishable. Documentation and
+// release-infrastructure changes (README, CHANGELOG, docs/, .github/) are
+// excluded: editing only those does not change consumer runtime behavior and
+// must not force a semver bump + CHANGELOG update.
+//
+// package.json is always a runtime-level concern, so it is never excluded.
+const runtimeChanged = changed.filter((f) => !isDocumentationOrInfra(f));
 const publishableChanged =
-  changed.some((f) => isPublishablePath(f, publishable)) ||
-  (changed.includes("package.json") && shippedPkgFieldsChanged(baseRef));
+  runtimeChanged.some((f) => isPublishablePath(f, publishable)) ||
+  (runtimeChanged.includes("package.json") &&
+    shippedPkgFieldsChanged(baseRef));
 if (!publishableChanged) {
   console.log("version:check ok — no publishable paths changed");
   process.exit(0);

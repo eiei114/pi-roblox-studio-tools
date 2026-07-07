@@ -4,6 +4,10 @@ This package uses npm Trusted Publishing with GitHub Actions OIDC.
 
 Do not add `NPM_TOKEN` or long-lived npm tokens to GitHub Secrets.
 
+If `NPM_TOKEN` exists in repository secrets, delete it. This package publishes only
+through npm Trusted Publishing (OIDC). CI fails if workflow files reference token
+secrets.
+
 ## One-time npm setup
 
 On npmjs.com, configure Trusted Publishing for this package:

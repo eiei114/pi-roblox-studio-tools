@@ -26,7 +26,13 @@ Before opening a PR:
 
 ## Release
 
-Releases use npm Trusted Publishing. Do not add `NPM_TOKEN` to GitHub Secrets.
+Releases publish to npm from GitHub Actions when a `v*` tag is pushed. The
+publish is authenticated with an npm **automation token** stored in the
+`NPM_TOKEN` repository secret (passed to `npm publish` as `NODE_AUTH_TOKEN`)
+and signed with npm **provenance** (`--provenance` + `permissions:
+id-token: write`). See [`docs/release.md`](docs/release.md) for full setup.
+
+> npm has no tokenless "Trusted Publishing"; `NPM_TOKEN` is required.
 
 ```bash
 npm version patch

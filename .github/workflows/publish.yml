@@ -24,4 +24,9 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run pack:check
-      - run: npm publish
+      # npm publish is authenticated with NODE_AUTH_TOKEN.
+      # `id-token: write` + `--provenance` only signs a provenance attestation;
+      # it does NOT replace the token. npm has no tokenless "Trusted Publishing".
+      - run: npm publish --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

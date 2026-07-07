@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Fixed
+
+- Harden npm publish path: `.github/workflows/publish.yml` now authenticates `npm publish --provenance` with `NODE_AUTH_TOKEN` from the `NPM_TOKEN` secret. The previous tokenless "Trusted Publishing" setup caused `npm error E404 Not Found` on the registry PUT and blocked `0.2.3`/`0.2.4` from publishing. npm has no tokenless OIDC publish; `id-token: write` only signs provenance.
+- Align `CONTRIBUTING.md` release section and `docs/template-checklist.md` release checklist with the new publish contract (NPM_TOKEN + NODE_AUTH_TOKEN + `permissions: id-token: write` for provenance), removing the stale tokenless Trusted Publishing wording.
+
+### Added
+
 - Add Buy Me a Coffee sponsor button to README and native GitHub funding link via `.github/FUNDING.yml`.
 
 All notable changes to this project will be documented in this file.

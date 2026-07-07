@@ -1,82 +1,68 @@
 # Release
 
-This package publishes to npm from GitHub Actions when a `v*` tag is pushed.
+This package uses npm Trusted Publishing with GitHub Actions OIDC.
 
-Authentication uses an npm **automation token** stored in the `NPM_TOKEN`
-repository secret, passed to `npm publish` as `NODE_AUTH_TOKEN`. Releases are
-additionally signed with npm **provenance** (`--provenance` + `id-token: write`),
-which attaches a Sigstore attestation linking the published tarball to this
-GitHub Actions build.
+Do not add `NPM_TOKEN` or long-lived npm tokens to GitHub Secrets.
 
-> **npm does not support tokenless "Trusted Publishing".** The `id-token: write`
-> permission only lets `--provenance` sign the release; it never authenticates
-> the publish itself. An earlier version of this doc (and the scaffolding
-> template) claimed no token was required — that is what broke the `v0.2.4`
-> publish (see [Incident: E404 on v0.2.4](#incident-e404-on-v024) below).
+## One-time npm setup
 
-## One-time setup
+On npmjs.com, configure Trusted Publishing for this package:
 
-1. Create an npm access token (Granular Access or Classic **Automation** token)
-   with publish rights for `pi-roblox-studio-tools`:
-   `npmjs.com → Access Tokens → Generate New Token`.
-2. Add it as a GitHub repository secret named **`NPM_TOKEN`**:
-   `Settings → Secrets and variables → Actions → New repository secret`.
-3. Keep the workflow `permissions: id-token: write` so `--provenance` can sign.
-4. Confirm `package.json` `publishConfig.access` is `public` (already set).
-
-`NPM_TOKEN` is a secret — it must never be committed or logged.
+- Publisher: GitHub Actions
+- Repository: this GitHub repository
+- Workflow filename: `publish.yml`
 
 ## Publish
 
 ```bash
 npm version patch
-git push --follow-tags
+git push
 ```
 
-The `v*` tag triggers `.github/workflows/publish.yml`, which runs typecheck,
-tests, `pack:check`, then `npm publish --provenance`.
+On `main`, `.github/workflows/auto-release.yml` checks `package.json` version. If `v<version>` does not exist yet, it creates the tag, creates the GitHub Release, then explicitly dispatches `.github/workflows/publish.yml` for that tag.
+
+The `v*.*.*` tag also triggers `.github/workflows/publish.yml`, which runs CI and publishes to npm when tags are pushed manually.
+Publishing also runs when a GitHub Release is published, and can be run manually from GitHub Actions with `workflow_dispatch`.
+
+The workflow skips `name@version` if that exact package version already exists on npm.
+
+## Workflow guardrail
+
+Do not ship a new Pi OSS package or version bump with only `package.json` changes.
+The repository must include the release workflow pair:
+
+- `.github/workflows/auto-release.yml` creates `v<version>` tags and GitHub Releases from `main` version bumps.
+- `.github/workflows/publish.yml` publishes to npm through Trusted Publishing.
+
+Important: tags or releases created by `GITHUB_TOKEN` do not reliably fan out into another workflow through normal `push.tags` or `release.published` triggers. The template keeps publishing reliable by having `auto-release.yml` explicitly dispatch `publish.yml` after creating the tag/release. If you change the release flow, keep one explicit handoff path: `workflow_dispatch` from auto-release, `repository_dispatch`, or `workflow_run` on the auto-release workflow.
+
+## GitHub Actions requirements
+
+- `permissions: id-token: write`
+- `permissions: actions: write` on auto-release so it can dispatch `publish.yml`
+- `auto-release.yml` must call `gh workflow run publish.yml --ref "$TAG" -f ref="$TAG"`, or `publish.yml` must have an equivalent explicit handoff trigger such as `workflow_run`
+- GitHub-hosted runner
+- Node.js 24, so the release job uses a current npm CLI for Trusted Publishing
+- No `NPM_TOKEN`
+- `npm publish` from the configured workflow file
 
 ## Incident: E404 on v0.2.4
 
 - **Symptom:** GitHub Actions run `28705012358` failed at `npm publish` with
   `npm error 404 Not Found - PUT https://registry.npmjs.org/pi-roblox-studio-tools`.
   npm `latest` stayed `0.2.2`; `0.2.3`/`0.2.4` never landed.
-- **Root cause:** the workflow granted `id-token: write` but passed **no
-  `NODE_AUTH_TOKEN`** to `npm publish`, because the docs claimed npm Trusted
-  Publishing needs no token. `npm publish` therefore ran unauthenticated. The
-  npm registry returns `404 Not Found` (not `401`) on unauthenticated publishes
-  to avoid leaking which package names exist — so the missing-token failure
-  surfaced as `E404`.
-- **Fix:** `npm publish --provenance` now receives `NODE_AUTH_TOKEN:
-  ${{ secrets.NPM_TOKEN }}` (see `.github/workflows/publish.yml`).
-
-## Recovering a failed tag
-
-GitHub re-runs a workflow using the workflow file at the tagged commit, so
-re-running an old run does **not** pick up workflow fixes. To republish a tag
-that failed before this fix (e.g. `v0.2.4`, still absent from npm):
-
-1. Merge the publish-path fix into the default branch.
-2. Ensure `NPM_TOKEN` is set.
-3. Re-point the tag at the fixed commit and push:
-
-   ```bash
-   git tag -f v0.2.4 <fixed-commit>
-   git push origin v0.2.4 --force
-   ```
-
-   Or delete the tag locally and on the remote, then recreate it on the fixed
-   commit and push. Because npm never received `0.2.4`, republishing the same
-   version is valid (no version conflict).
-
-If you prefer not to move tags, run `npm publish --provenance` once locally from
-the fixed commit while logged into npm.
+- **Root cause:** the workflow ran without a working Trusted Publishing handoff.
+  An interim fix added `NPM_TOKEN`, but Pi OSS standard is OIDC Trusted
+  Publishing through `auto-release.yml` + `publish.yml`.
+- **Fix (0.2.5):** align with `pi-extension-template` — OIDC only, explicit
+  `publish.yml` dispatch from `auto-release.yml`, and npm Trusted Publisher
+  configured for `publish.yml`.
 
 ## First release checklist
 
 - [ ] `package.json` name is final
 - [ ] `repository.url` points to the real GitHub repository
-- [ ] `NPM_TOKEN` repository secret is set (npm Automation token)
+- [ ] npm Trusted Publisher is configured
 - [ ] `npm run ci` passes
 - [ ] `npm pack --dry-run` contains only intended files
 - [ ] `CHANGELOG.md` has the release date

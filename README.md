@@ -111,16 +111,18 @@ npm pack --dry-run
 
 ## Release
 
-Publishing is authenticated with an npm automation token stored in the
-`NPM_TOKEN` repository secret, and releases are signed with npm provenance.
+This package uses npm Trusted Publishing with GitHub Actions OIDC, so no
+`NPM_TOKEN` is required.
 
 ```bash
 npm version patch
-git push --follow-tags
+git push
 ```
 
-See [`docs/release.md`](docs/release.md) for the one-time `NPM_TOKEN` setup and
-the `v0.2.4` publish-incident notes.
+On `main`, a `package.json` version bump triggers auto-release, which creates
+the tag and dispatches `publish.yml`.
+
+See [`docs/release.md`](docs/release.md) for setup details.
 
 ## Security
 

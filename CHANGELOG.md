@@ -1,19 +1,22 @@
 # Changelog
 
-## Unreleased
+All notable changes to this project will be documented in this file.
+
+This project follows semantic versioning.
+
+## [0.2.5] - 2026-07-07
 
 ### Fixed
 
-- Harden npm publish path: `.github/workflows/publish.yml` now authenticates `npm publish --provenance` with `NODE_AUTH_TOKEN` from the `NPM_TOKEN` secret. The previous tokenless "Trusted Publishing" setup caused `npm error E404 Not Found` on the registry PUT and blocked `0.2.3`/`0.2.4` from publishing. npm has no tokenless OIDC publish; `id-token: write` only signs provenance.
-- Align `CONTRIBUTING.md` release section and `docs/template-checklist.md` release checklist with the new publish contract (NPM_TOKEN + NODE_AUTH_TOKEN + `permissions: id-token: write` for provenance), removing the stale tokenless Trusted Publishing wording.
+- Align release automation with `pi-extension-template` OIDC Trusted Publishing: add `auto-release.yml`, replace `publish.yml` with the template workflow pair, and remove `NPM_TOKEN` / `NODE_AUTH_TOKEN` from the publish path.
+- Update `docs/release.md`, `CONTRIBUTING.md`, and `docs/template-checklist.md` for the OIDC + auto-release contract.
+- Bump CI and publish workflows to Node.js 24 for Trusted Publishing compatibility.
+
+## [0.2.4] - 2026-07-04
 
 ### Added
 
 - Add Buy Me a Coffee sponsor button to README and native GitHub funding link via `.github/FUNDING.yml`.
-
-All notable changes to this project will be documented in this file.
-
-This project follows semantic versioning.
 
 ## [0.2.3] - 2026-06-26
 
@@ -64,4 +67,3 @@ This project follows semantic versioning.
 - Added `roblox_studio_mcp_status` Pi tool.
 - Added Roblox Studio MCP Agent Skill guidance.
 - Added CI, npm pack check, and Trusted Publishing-ready workflow from template.
-

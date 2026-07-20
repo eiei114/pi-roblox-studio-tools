@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.6] - 2026-07-20
+
+### Changed
+
+- Bump package version to `0.2.6` for the next patch release.
+
+
 All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.

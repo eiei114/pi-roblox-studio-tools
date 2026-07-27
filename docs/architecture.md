@@ -12,11 +12,22 @@ Avoid configuring Roblox Studio MCP as a long-running MCP server in Pi. Instead,
 - macOS: `/Applications/RobloxStudio.app/Contents/MacOS/StudioMCP`, then `~/Applications/RobloxStudio.app/Contents/MacOS/StudioMCP`
 - Linux: unsupported because Roblox Studio is unsupported
 
-## Initial slice
+## Initial slice (shipped)
 
 - `lib/studio-mcp.ts` resolves StudioMCP command candidates.
 - `lib/stdio-mcp-client.ts` runs one-shot stdio JSON-RPC against StudioMCP.
-- `extensions/index.ts` registers `/roblox-studio-mcp-status`, `roblox_studio_mcp_status`, and `roblox_studio_mcp_list_tools`.
+- `extensions/index.ts` registers:
+  - `/roblox-studio-mcp-status`
+  - `roblox_studio_mcp_status`
+
+## Planned
+
+The one-shot client in `lib/stdio-mcp-client.ts` already supports `tools/list` and `tools/call` requests, but no Pi wrapper tools are registered yet. A future slice will add:
+
+- `roblox_studio_mcp_list_tools` — read-only wrapper around `tools/list`
+- `roblox_studio_mcp_call_tool` — on-demand wrapper around `tools/call` (mutation; gated behind list + safety guidance)
+
+See `ROADMAP.md` (seeds FEAT-001 / FEAT-002) and `skills/roblox-studio/SKILL.md` for scope.
 
 ## On-demand MCP client
 

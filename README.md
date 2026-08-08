@@ -109,7 +109,7 @@ npm run ci
 npm pack --dry-run
 ```
 
-`npm run ci` runs typecheck, tests, `npm run pack:check` (`npm pack --dry-run`), and `npm run publish:guard` (verifies workflow files use OIDC Trusted Publishing only). Run `npm pack --dry-run` directly when you only need to verify the published tarball contents.
+`npm run ci` runs `npm run typecheck`, `npm test`, `npm run pack:check` (`npm pack --dry-run`), and `npm run publish:guard` (fails if workflow files reference `NPM_TOKEN` or `NODE_AUTH_TOKEN`). Verify that publish workflows use npm Trusted Publishing (OIDC). Run `npm pack --dry-run` directly when you only need to verify the published tarball contents.
 
 ## Release
 

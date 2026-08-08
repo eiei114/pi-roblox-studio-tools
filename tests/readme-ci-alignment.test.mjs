@@ -23,17 +23,23 @@ function extractCiScriptNames(ciScript) {
 }
 
 function readmeMentionsScript(section, scriptName) {
-  if (scriptName === "test") {
-    return /\btests?\b/.test(section);
-  }
-  return section.includes(scriptName);
+  const command =
+    scriptName === "test" ? "npm test" : `npm run ${scriptName}`;
+  return section.includes(command);
 }
 
 test("README Development section documents every npm run ci step", () => {
   const developmentStart = readme.indexOf("## Development");
   assert.notEqual(developmentStart, -1, "README must include a Development section");
 
-  const developmentSection = readme.slice(developmentStart);
+  const developmentEnd = readme.indexOf(
+    "\n## ",
+    developmentStart + "## Development".length,
+  );
+  const developmentSection = readme.slice(
+    developmentStart,
+    developmentEnd === -1 ? readme.length : developmentEnd,
+  );
   const ciScripts = extractCiScriptNames(packageJson.scripts.ci);
 
   for (const script of ciScripts) {

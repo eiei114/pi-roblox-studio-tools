@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
+
+const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 
 const { runOneShotMcpRequest, runOneShotMcpRequests } = await import("../lib/stdio-mcp-client.ts");
 
@@ -30,6 +33,46 @@ rl.on("line", (line) => {
   }
 });
 `;
+
+test("getClientInfo version matches package.json", async () => {
+  const { getClientInfo } = await import("../lib/client-info.ts");
+
+  assert.equal(getClientInfo().name, "pi-roblox-studio-tools");
+  assert.equal(getClientInfo().version, packageJson.version);
+});
+
+test("runOneShotMcpRequest sends package.json version in initialize clientInfo", async () => {
+  const versionCaptureServer = String.raw`
+const readline = require("node:readline");
+let initClientVersion;
+const rl = readline.createInterface({ input: process.stdin });
+rl.on("line", (line) => {
+  if (!line.trim()) return;
+  const message = JSON.parse(line);
+  if (message.method === "initialize") {
+    initClientVersion = message.params?.clientInfo?.version;
+    console.log(JSON.stringify({ jsonrpc: "2.0", id: message.id, result: { protocolVersion: message.params.protocolVersion, capabilities: { tools: {} }, serverInfo: { name: "fake", version: "0.0.0" } } }));
+    return;
+  }
+  if (message.method === "tools/list") {
+    console.log(JSON.stringify({ jsonrpc: "2.0", id: message.id, result: { tools: [], clientVersion: initClientVersion } }));
+    return;
+  }
+  if (message.id !== undefined) {
+    console.log(JSON.stringify({ jsonrpc: "2.0", id: message.id, error: { code: -32601, message: "Method not found" } }));
+  }
+});
+`;
+
+  const result = await runOneShotMcpRequest(
+    { command: process.execPath, args: ["-e", versionCaptureServer], source: "node version capture server" },
+    "tools/list",
+    undefined,
+    { timeoutMs: 2000 },
+  );
+
+  assert.equal(result.response.result.clientVersion, packageJson.version);
+});
 
 test("probeStudioMcpInitialize completes initialize without follow-up requests", async () => {
   const { probeStudioMcpInitialize } = await import("../lib/stdio-mcp-client.ts");

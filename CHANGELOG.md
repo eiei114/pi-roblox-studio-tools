@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.8] - 2026-08-17
+
+### Fixed
+
+- Source MCP `initialize` `clientInfo.version` from `package.json` instead of a hardcoded literal so the reported client version stays aligned with the shipped package.
+
 ## [0.2.7] - 2026-08-04
 
 ### Changed

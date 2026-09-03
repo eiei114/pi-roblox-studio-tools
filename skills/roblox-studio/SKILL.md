@@ -18,4 +18,10 @@ Current package state:
 
 - `roblox_studio_mcp_status` locates StudioMCP and runs a lightweight initialize probe.
 - `/roblox-studio-mcp-status` reports whether StudioMCP was found and whether initialize succeeded.
-- Future slices will add on-demand `tools/list` and `tools/call` wrappers without a persistent MCP server.
+- `roblox_studio_mcp_list_tools` runs read-only `tools/list` and returns a capped tool inventory.
+- `roblox_studio_mcp_list_studios` runs only the hard-coded read-only `list_roblox_studios` call with empty arguments.
+
+Mutation boundary:
+
+- Do not expose or simulate a generic `tools/call` wrapper from these inventory tools.
+- Do not attempt active Studio selection or mutation-capable Studio tools without an explicit future package slice and user confirmation policy.

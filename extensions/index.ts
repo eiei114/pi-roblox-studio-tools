@@ -1,10 +1,13 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { listRobloxStudios, listStudioMcpTools } from "../lib/studio-mcp-inventory.ts";
 import { resolveStudioMcpCommand } from "../lib/studio-mcp.ts";
 
 const statusParameters = Type.Object({
   verbose: Type.Optional(Type.Boolean({ description: "Include all checked candidate paths." })),
 });
+
+const inventoryParameters = Type.Object({});
 
 function formatStatus(status: Awaited<ReturnType<typeof resolveStudioMcpCommand>>, verbose = false): string {
   const lines = [
@@ -60,6 +63,46 @@ export default function (pi: ExtensionAPI) {
       return {
         content: [{ type: "text", text: formatStatus(status, params.verbose ?? false) }],
         details: status,
+      };
+    },
+  });
+
+  pi.registerTool({
+    name: "roblox_studio_mcp_list_tools",
+    label: "Roblox Studio MCP List Tools",
+    description: "List StudioMCP tool names and descriptions through a one-shot tools/list request without keeping an MCP process alive.",
+    promptSnippet: "roblox_studio_mcp_list_tools: read-only StudioMCP tools/list inventory with capped output",
+    promptGuidelines: [
+      "Use roblox_studio_mcp_list_tools after roblox_studio_mcp_status when the user wants to inspect what StudioMCP exposes.",
+      "This tool is read-only and does not call mutation-capable Studio tools.",
+      "Do not expose or simulate a generic tools/call wrapper from this inventory result.",
+    ],
+    parameters: inventoryParameters,
+    async execute() {
+      const result = await listStudioMcpTools();
+      return {
+        content: [{ type: "text", text: result.text }],
+        details: result.details,
+      };
+    },
+  });
+
+  pi.registerTool({
+    name: "roblox_studio_mcp_list_studios",
+    label: "Roblox Studio MCP List Studios",
+    description: "List open Roblox Studio instances through a one-shot read-only list_roblox_studios call without keeping an MCP process alive.",
+    promptSnippet: "roblox_studio_mcp_list_studios: read-only Studio instance inventory via list_roblox_studios",
+    promptGuidelines: [
+      "Use roblox_studio_mcp_list_studios after roblox_studio_mcp_status when the user wants to see open Roblox Studio instances.",
+      "This tool calls only the hard-coded read-only list_roblox_studios tool with empty arguments.",
+      "Do not attempt active Studio selection or mutation-capable tools from this inventory flow.",
+    ],
+    parameters: inventoryParameters,
+    async execute() {
+      const result = await listRobloxStudios();
+      return {
+        content: [{ type: "text", text: result.text }],
+        details: result.details,
       };
     },
   });

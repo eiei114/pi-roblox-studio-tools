@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0] - 2026-09-03
+
+### Added
+
+- `roblox_studio_mcp_list_tools` Pi tool for read-only StudioMCP `tools/list` inventory with capped tool names and descriptions.
+- `roblox_studio_mcp_list_studios` Pi tool for read-only Studio instance inventory via the hard-coded `list_roblox_studios` call only.
+- `lib/studio-mcp-inventory.ts` helpers that reuse existing readiness resolution and return structured `details` with counts, stderr excerpts, and MCP error data.
+
+### Changed
+
+- README, architecture, examples, and the Roblox Studio skill now document the read-only inventory flow and mutation boundary.
+
 ## [0.2.9] - 2026-08-22
 
 ### Changed

@@ -24,8 +24,12 @@ The package locates the official `StudioMCP` command on Windows and macOS. MCP t
 - Cross-platform StudioMCP path detection for Windows and macOS
 - Pi command: `/roblox-studio-mcp-status`
 - Pi tool: `roblox_studio_mcp_status` with initialize probe
+- Pi tool: `roblox_studio_mcp_list_tools` for read-only `tools/list` inventory
+- Pi tool: `roblox_studio_mcp_list_studios` for read-only open Studio instance inventory
 - Distinguishes missing StudioMCP from installed-but-not-callable states
+- Capped inventory output so large tool lists or stderr cannot flood Pi context
 - No persistent MCP process by default
+- No generic mutation `tools/call` wrapper in this package slice
 - TypeScript-first Pi package structure
 
 ## Install
@@ -72,9 +76,11 @@ The agent can also call:
 
 ```txt
 roblox_studio_mcp_status
+roblox_studio_mcp_list_tools
+roblox_studio_mcp_list_studios
 ```
 
-Status output reports whether StudioMCP was found and whether initialize succeeded.
+Status output reports whether StudioMCP was found and whether initialize succeeded. The inventory tools run only when StudioMCP is callable and return capped read-only diagnostics for exposed MCP tools and open Studio instances.
 
 ## StudioMCP paths
 

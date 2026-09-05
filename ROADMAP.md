@@ -17,12 +17,11 @@ completed/dropped. It is **not** shipped in the npm tarball (`package.json`
 | Field | Value |
 |---|---|
 | Package | `pi-roblox-studio-tools` |
-| `package.json` version | `0.2.5` |
-| Latest GitHub release | [`v0.2.5`](https://github.com/eiei114/pi-roblox-studio-tools/releases) (2026-07-07) |
-| npm `latest` | `0.2.5` |
-| npm published versions | `0.2.2`, `0.2.5` |
+| `package.json` version | `0.3.0` |
+| Latest GitHub release | [`v0.3.0`](https://github.com/eiei114/pi-roblox-studio-tools/releases/tag/v0.3.0) (2026-09-03) |
+| npm `latest` | `0.3.0` |
 | Release mechanism | npm Trusted Publishing (OIDC) via `auto-release.yml` → `publish.yml` |
-| Open PRs | [#22](https://github.com/eiei114/pi-roblox-studio-tools/pull/22) dependabot dev-dep bump |
+| Open PRs | [#42](https://github.com/eiei114/pi-roblox-studio-tools/pull/42) dependabot dev-dep bump |
 | Open GitHub issues | none |
 
 ### Publish-history note
@@ -33,61 +32,54 @@ Publishing handoff was realigned to the `pi-extension-template` contract in
 `CHANGELOG.md` still documents the intermediate versions for completeness.
 See `docs/release.md` → "Incident: E404 on v0.2.4".
 
-### What is shipped today (0.2.5)
+### What is shipped today (0.3.0)
 
 - **Command**: `/roblox-studio-mcp-status`
-- **Tool**: `roblox_studio_mcp_status` (with a lightweight `initialize` probe)
+- **Tools**:
+  - `roblox_studio_mcp_status` (with a lightweight `initialize` probe)
+  - `roblox_studio_mcp_list_tools` (read-only `tools/list` inventory, capped output)
+  - `roblox_studio_mcp_list_studios` (read-only `list_roblox_studios` call only)
 - **Library**:
   - `lib/studio-mcp.ts` — cross-platform StudioMCP discovery (Windows + macOS) and readiness resolution
-  - `lib/stdio-mcp-client.ts` — one-shot stdio JSON-RPC client:
-    `probeStudioMcpInitialize`, `runOneShotMcpRequest(s)`, `StudioMcpProcessRegistry`
+  - `lib/stdio-mcp-client.ts` — one-shot stdio JSON-RPC client with `getClientInfo()` version sourcing
+  - `lib/studio-mcp-inventory.ts` — structured inventory responses with output caps
+  - `lib/client-info.ts` — reads `package.json` version for MCP `clientInfo`
 - **Skill**: `skills/roblox-studio/SKILL.md`
 - **CI/release**: typecheck + `node:test` + `npm pack --dry-run` +
   `publish:guard`; OIDC Trusted Publishing.
 
 ### What is intentionally deferred
 
-- **Generic on-demand MCP wrappers as Pi tools.** The underlying helpers
-  (`runOneShotMcpRequest` / `runOneShotMcpRequests`) exist and are tested, but
-  no `roblox_studio_mcp_list_tools` / `roblox_studio_mcp_call_tool` Pi tool is
-  registered yet. `CHANGELOG.md` 0.2.0 explicitly deferred this slice. This is
-  the single biggest product gap and the headline feature work below.
+- **Generic on-demand `tools/call` wrapper as a Pi tool.** The underlying
+  one-shot client (`runOneShotMcpRequest`) can already send arbitrary JSON-RPC
+  requests, but no `roblox_studio_mcp_call_tool` is registered. Studio mutation
+  tools run without a confirmation UI, so this slice needs explicit safety
+  guidance and likely an opt-in gate before shipping.
 
 ---
 
-## 2. Short-term maintenance goals (next 2–3 releases)
+## 2. Short-term maintenance goals (next 1–2 releases)
 
 These are directional, not committed dates. Each release stays small and
 reversible.
 
-### 0.2.6 — doc/truth alignment patch (housekeeping)
+### 0.3.1 — housekeeping patch (maintenance)
 
-Goal: make the public docs match the actually-shipped surface so the package
-does not advertise tools that are not registered. No runtime behavior change.
+Goal: close small doc/code hygiene seeds without changing runtime behavior.
 
-- Sync `docs/architecture.md` and `docs/examples.md` to the shipped surface
-  (seed **DOC-001**).
-- Optionally back-fill the small `CLIENT_INFO` version drift (seed **INFRA-001**)
-  if scoped to a read-only fix.
-- Close the dependabot queue (#22) or document why it is held.
+- Link this roadmap from `README.md` and `docs/template-checklist.md` (seed **DOC-002**).
+- Collapse the redundant `formatStatus` notify ternary in `extensions/index.ts` (seed **CLEANUP-001**).
+- Triage or merge the dependabot queue ([#42](https://github.com/eiei114/pi-roblox-studio-tools/pull/42)).
 
-### 0.3.0 — first on-demand tool slice: `tools/list` (feature)
+### 0.4.0 — gated mutation slice: `tools/call` (feature)
 
-Goal: deliver the first piece of deferred value behind the existing,
-already-tested one-shot client. List-only, read-only — no Studio mutation yet.
-
-- Register `roblox_studio_mcp_list_tools` over `runOneShotMcpRequest("tools/list")`.
-- Add TypeBox parameters, prompt snippet/guidelines, and tests.
-- Update `docs/examples.md`, `README.md`, and the Skill to reflect the new tool.
-
-### 0.3.1+ — `tools/call` (mutation) slice (feature, gated)
-
-Goal: expose `roblox_studio_mcp_call_tool`. This is **mutation** territory, so
-it lands only after `tools/list`, with explicit safety guidance (see the
-README security note: Studio mutation tools run without a confirmation UI).
+Goal: expose `roblox_studio_mcp_call_tool` behind explicit safety guidance.
+This is **mutation** territory and lands only after the read-only inventory
+tools are stable in production.
 
 - Per-call timeouts, stderr surfacing, and clear argument vetting guidance.
 - Consider an opt-in confirmation surface before widening access.
+- Update Skill, README, and architecture docs with mutation boundary rules.
 
 ---
 
@@ -95,32 +87,26 @@ README security note: Studio mutation tools run without a confirmation UI).
 
 Each item is small, localized, and suitable for a micro-seed.
 
-| ID | Area | Debt |
-|---|---|---|
-| TD-1 | Docs | `docs/architecture.md` + `docs/examples.md` describe `roblox_studio_mcp_list_tools` / `roblox_studio_mcp_call_tool` as registered; they are not. Overpromises the shipped surface. |
-| TD-2 | Code | `lib/stdio-mcp-client.ts` hardcodes `CLIENT_INFO.version = "0.2.0"`; package is `0.2.5`. MCP `initialize` `clientInfo` reports a stale version. |
-| TD-3 | Code | `extensions/index.ts` `formatStatus` notify level: `status.callable ? "info" : status.found ? "warning" : "warning"` — both fallback branches are `"warning"`, redundant. |
-| TD-4 | Docs | `docs/examples.md` describes a `list_roblox_studios` / `activeStudioId` flow for the unregistered call tool; reads as shipped rather than planned. |
-| TD-5 | Tests | `makeSpawnCommand` (Windows `.bat`/`.cmd` → `cmd.exe /c` wrapping) and `pathExists` (`X_OK` → `F_OK` fallback) have no direct unit tests; only exercised indirectly. |
-| TD-6 | CI | CI runs only `ubuntu-latest`. The package is Windows/macOS-only and the `cmd.exe` spawn branch is only exercised at runtime on Windows. |
-| TD-7 | Release | `docs/template-checklist.md` leaves "LICENSE の年・名前を確認する" and several publish-time checks unchecked. |
+| ID | Area | Debt | Status |
+|---|---|---|---|
+| TD-1 | Docs | `docs/architecture.md` + `docs/examples.md` overpromised unregistered tools | **Resolved** in 0.3.0 |
+| TD-2 | Code | MCP `clientInfo.version` drifted from `package.json` | **Resolved** in 0.2.8 (`lib/client-info.ts`) |
+| TD-3 | Code | `extensions/index.ts` `formatStatus` notify level: both fallback branches are `"warning"`, redundant | Open |
+| TD-4 | Docs | `docs/examples.md` described unregistered call-tool flows | **Resolved** in 0.3.0 |
+| TD-5 | Tests | `makeSpawnCommand` (Windows `.bat`/`.cmd` wrapping) and `pathExists` (`X_OK` → `F_OK` fallback) lack direct unit tests | Open |
+| TD-6 | CI | CI runs only `ubuntu-latest`; the `cmd.exe` spawn branch is only exercised at runtime on Windows | Open |
+| TD-7 | Docs | `docs/template-checklist.md` leaves several publish-time checks unchecked | Open |
+| TD-8 | Docs | `ROADMAP.md` is not linked from `README.md` or the template checklist | Open |
 
 ---
 
 ## 4. Improvement areas
 
-- **Feature surface** — ship the deferred on-demand `tools/list` then `tools/call`
-  Pi tools (Section 2). This is the core value proposition of the package.
-- **Documentation** — keep public docs truthful about shipped vs. planned
-  surface; add a short "shipped today / planned next" section once `tools/list`
-  lands.
-- **Tests** — add direct unit coverage for the platform-specific spawn path and
-  filesystem helpers so behavior is locked without relying on a real Roblox
-  install.
-- **Examples** — once `tools/list` ships, add a runnable example and expand the
-  Skill guidance so the agent knows when to list vs. call.
-- **Reliability** — tighten timeout/abort coverage and surface stderr in tool
-  results; document the `StudioMcpProcessRegistry` `session_shutdown` contract.
+- **Feature surface** — ship the gated on-demand `tools/call` Pi tool (Section 2, FEAT-002). This is the remaining core value gap.
+- **Documentation** — keep public docs truthful about shipped vs. planned surface; make this roadmap discoverable (DOC-002).
+- **Tests** — add direct unit coverage for platform-specific spawn and filesystem helpers (TEST-001) so behavior is locked without a real Roblox install.
+- **Reliability** — tighten timeout/abort coverage and surface stderr in tool results; document the `StudioMcpProcessRegistry` `session_shutdown` contract.
+- **CI** — add a Windows runner to exercise the `cmd.exe` spawn path (CI-001, stretch).
 
 ---
 
@@ -133,43 +119,44 @@ the Weekly maintenance seed planner. Seeds are independent unless noted.
 > Convention: a seed ID here is informal. Once promoted to an issue, reference
 > the issue key and mark the seed **done** below.
 
-| ID | Title | Est. | Depends on |
-|---|---|---|---|
-| DOC-001 | Align architecture/examples docs to shipped surface | 30–45m | — |
-| INFRA-001 | Stop hardcoding `CLIENT_INFO.version` | 30–60m | — |
-| TEST-001 | Unit-test `makeSpawnCommand` + `pathExists` | 30–45m | — |
-| CLEANUP-001 | Collapse redundant `formatStatus` notify ternary | 15–30m | — |
-| DOC-002 | Reference ROADMAP.md from README + template-checklist | 15–30m | — |
-| FEAT-001 | Ship read-only `roblox_studio_mcp_list_tools` tool | 60–90m | — |
+| ID | Title | Est. | Depends on | Status |
+|---|---|---|---|---|
+| DOC-001 | Align architecture/examples docs to shipped surface | 30–45m | — | **done** (0.3.0) |
+| INFRA-001 | Stop hardcoding `CLIENT_INFO.version` | 30–60m | — | **done** (0.2.8) |
+| FEAT-001 | Ship read-only `roblox_studio_mcp_list_tools` + `list_studios` | 60–90m | — | **done** (0.3.0) |
+| DOC-002 | Reference ROADMAP.md from README + template-checklist | 15–30m | — | Open |
+| CLEANUP-001 | Collapse redundant `formatStatus` notify ternary | 15–30m | — | Open |
+| TEST-001 | Unit-test `makeSpawnCommand` + `pathExists` | 30–45m | — | Open |
+| TEST-002 | Add inventory cap edge-case regression tests | 30–60m | — | Open |
+| DOC-003 | Refresh template-checklist for post-0.3.0 shipped state | 30–45m | — | Open |
 
-### DOC-001 — Align architecture/examples docs to shipped surface
-**Why**: `docs/architecture.md` and `docs/examples.md` list
-`roblox_studio_mcp_list_tools` / `roblox_studio_mcp_call_tool` as registered,
-but `extensions/index.ts` only registers the status command + tool. Consumers
-hit dead ends.
-**Scope**: rewrite the affected sections to describe only the shipped surface;
-move the `tools/list` + `tools/call` descriptions to a clearly-labeled
-"Planned" subsection.
-**Acceptance criteria**:
-- [ ] No doc claims a Pi tool/command that is not registered in `extensions/index.ts`.
-- [ ] `docs/architecture.md` "Initial slice" lists exactly the registered surface.
-- [ ] Deferred wrappers appear only under a "Planned" heading.
-- [ ] `npm run ci` passes; no runtime change.
+### DOC-002 — Reference ROADMAP.md from README + template-checklist
 
-### INFRA-001 — Stop hardcoding `CLIENT_INFO.version`
-**Why**: `lib/stdio-mcp-client.ts` sends `clientInfo.version: "0.2.0"` in every
-MCP `initialize`; the package is `0.2.5`. Drift will recur on every release.
-**Scope**: source the version from `package.json` (read once, cached) instead
-of a literal, without adding a runtime file dependency to the published
-surface that breaks `npm pack`.
+**Why**: this roadmap should be discoverable by maintainers and the Weekly
+maintenance seed planner. Without links, the file exists but is effectively
+invisible.
+**Scope**: add a one-line link from `README.md` ("Links" or "Package contents")
+and a checklist item in `docs/template-checklist.md`.
 **Acceptance criteria**:
-- [ ] MCP `initialize` `clientInfo.version` equals the current `package.json` version.
-- [ ] New unit test asserts the reported version matches `package.json`.
-- [ ] `npm run ci` + `npm pack --dry-run` pass; no new unintended file in the tarball.
+- [ ] `README.md` links to `ROADMAP.md`.
+- [ ] `docs/template-checklist.md` has a "ROADMAP.md を用意する" item.
+- [ ] `npm run ci` passes.
+
+### CLEANUP-001 — Collapse redundant `formatStatus` notify ternary
+
+**Why**: in `extensions/index.ts`, `status.callable ? "info" : status.found ?
+"warning" : "warning"` has two identical branches (TD-3).
+**Scope**: simplify to the intended two-level mapping (`info` when callable,
+`warning` otherwise) with a short comment.
+**Acceptance criteria**:
+- [ ] Notify level is `info` iff callable, else `warning`.
+- [ ] No behavior change; `npm run ci` passes.
 
 ### TEST-001 — Unit-test `makeSpawnCommand` + `pathExists`
+
 **Why**: the Windows `.bat`/`.cmd` → `cmd.exe /c` wrapping and the `X_OK` →
-`F_OK` filesystem fallback are only exercised indirectly. Lock the contract.
+`F_OK` filesystem fallback are only exercised indirectly (TD-5). Lock the
+contract so refactors cannot break platform-specific spawn behavior.
 **Scope**: add `tests/` cases for both helpers using dependency-injected/fake
 inputs (no real Roblox install, works on `ubuntu-latest`).
 **Acceptance criteria**:
@@ -177,38 +164,32 @@ inputs (no real Roblox install, works on `ubuntu-latest`).
 - [ ] `pathExists` returns `true`/`false` for present/absent paths.
 - [ ] `npm run ci` passes on the default CI runner.
 
-### CLEANUP-001 — Collapse redundant `formatStatus` notify ternary
-**Why**: in `extensions/index.ts`, `status.callable ? "info" : status.found ?
-"warning" : "warning"` has two identical branches.
-**Scope**: simplify to the intended two-level mapping (`info` when callable,
-`warning` otherwise) with a short comment.
-**Acceptance criteria**:
-- [ ] Notify level is `info` iff callable, else `warning`.
-- [ ] No behavior change; `npm run ci` passes.
+### TEST-002 — Add inventory cap edge-case regression tests
 
-### DOC-002 — Reference ROADMAP.md from README + template-checklist
-**Why**: this roadmap should be discoverable. Add a one-line link from
-`README.md` ("Package contents" / "Links") and a checklist item in
-`docs/template-checklist.md`.
+**Why**: `lib/studio-mcp-inventory.ts` caps tool names (25), descriptions
+(~120 chars), inventory text (~10 KiB), and stderr (~2 KiB). A regression
+could flood Pi context with unbounded StudioMCP output.
+**Scope**: extend the existing fake-server test pattern to assert truncation
+behavior when the mock returns oversized payloads.
 **Acceptance criteria**:
-- [ ] `README.md` links to `ROADMAP.md`.
-- [ ] `docs/template-checklist.md` has a "ROADMAP.md を用意する" item.
+- [ ] Tests cover at least one cap boundary (tool count or description length).
+- [ ] Tests assert ANSI/control-character stripping still applies after truncation.
+- [ ] `npm run ci` passes; no runtime behavior change unless a bug is found.
+
+### DOC-003 — Refresh template-checklist for post-0.3.0 shipped state
+
+**Why**: `docs/template-checklist.md` still reads like a greenfield scaffold
+(many unchecked "create repository" items) even though the package is published
+at 0.3.0 (TD-7). Stale checklist items confuse new maintainers.
+**Scope**: mark completed items, move one-time setup steps to a "Historical"
+subsection, and add ongoing maintenance items (ROADMAP refresh, dependabot triage).
+**Acceptance criteria**:
+- [ ] Checklist reflects the current published state without deleting useful reminders.
+- [ ] At least one ongoing maintenance item is added.
 - [ ] `npm run ci` passes.
 
-### FEAT-001 — Ship read-only `roblox_studio_mcp_list_tools` tool
-**Why**: first slice of the deferred on-demand value. Read-only, safe to ship
-before mutation. Builds on the already-tested `runOneShotMcpRequest`.
-**Scope**: register `roblox_studio_mcp_list_tools` (TypeBox params, prompt
-snippet/guidelines) that runs `tools/list` via the one-shot client and returns
-a summarized tool list; add tests using the existing fake-server pattern.
-**Acceptance criteria**:
-- [ ] `roblox_studio_mcp_list_tools` appears in `extensions/index.ts` and is covered by a test.
-- [ ] Tool spawns StudioMCP, lists tools, and shuts the process down (no persistent server).
-- [ ] `README.md`, `docs/examples.md`, `docs/architecture.md`, and the Skill reflect the new tool.
-- [ ] `npm run ci` passes; appropriate version bump + `CHANGELOG.md` entry (this **is** a publishable change).
-
 > **Stretch / future** (larger than a micro-seed, listed for visibility):
-> - FEAT-002 `roblox_studio_mcp_call_tool` (mutation) — gated behind FEAT-001, needs safety guidance.
+> - FEAT-002 `roblox_studio_mcp_call_tool` (mutation) — gated, needs safety guidance (Section 2).
 > - CI-001 add a Windows runner to the CI matrix to exercise the `cmd.exe` spawn path (TD-6).
 
 ---

@@ -142,6 +142,7 @@ For vulnerability reporting, see [`SECURITY.md`](SECURITY.md).
 
 ## Links
 
+- Maintainer roadmap: [`ROADMAP.md`](ROADMAP.md)
 - npm: https://www.npmjs.com/package/pi-roblox-studio-tools
 - GitHub: https://github.com/eiei114/pi-roblox-studio-tools
 - Issues: https://github.com/eiei114/pi-roblox-studio-tools/issues

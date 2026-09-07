@@ -15,6 +15,7 @@
   - [ ] `typescript`
 - [x] Repository URLを `package.json` に反映する
 - [x] READMEのplaceholderを置き換える
+- [x] ROADMAP.md を用意する
 
 ## Package metadata
 

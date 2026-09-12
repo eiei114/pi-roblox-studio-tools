@@ -34,6 +34,35 @@ Then run:
 
 These inventory tools do not expose generic `tools/call` or mutation wrappers. See `skills/roblox-studio/SKILL.md` for the current scope and policy.
 
+## Recommended workflow
+
+Use this copy-and-run sequence after installing the package or trying locally with `pi -e .`:
+
+1. Open Roblox Studio on Windows or macOS.
+2. Check readiness with the command or tool:
+
+```txt
+/roblox-studio-mcp-status
+```
+
+```txt
+roblox_studio_mcp_status
+```
+
+3. When output shows `callable: true`, inspect the MCP tool inventory:
+
+```txt
+roblox_studio_mcp_list_tools
+```
+
+4. List open Studio instances:
+
+```txt
+roblox_studio_mcp_list_studios
+```
+
+Each inventory tool starts StudioMCP on demand, returns capped read-only output, and shuts the child process down afterward. If readiness is `found_not_callable`, keep Roblox Studio open and rerun step 2 before steps 3–4.
+
 ## Agent Skill
 
 `skills/roblox-studio/SKILL.md` tells the agent to prefer on-demand StudioMCP child processes and avoid long-running MCP registration.

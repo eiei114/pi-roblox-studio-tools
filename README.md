@@ -82,6 +82,8 @@ roblox_studio_mcp_list_studios
 
 Status output reports whether StudioMCP was found and whether initialize succeeded. The inventory tools run only when StudioMCP is callable and return capped read-only diagnostics for exposed MCP tools and open Studio instances.
 
+For a copy-and-run status → inventory workflow, see [`docs/examples.md`](docs/examples.md#recommended-workflow).
+
 ## StudioMCP paths
 
 Windows:

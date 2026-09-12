@@ -60,3 +60,23 @@ test("docs/examples.md lists only registered Pi tools and commands", () => {
     "documented tools must match extensions/index.ts",
   );
 });
+
+test("docs/examples.md documents inventory workflow in recommended order", () => {
+  const workflowSection = extractExamplesSection(examples, "## Recommended workflow");
+  const toolOrder = [
+    "roblox_studio_mcp_status",
+    "roblox_studio_mcp_list_tools",
+    "roblox_studio_mcp_list_studios",
+  ];
+
+  let lastIndex = -1;
+  for (const tool of toolOrder) {
+    const index = workflowSection.indexOf(tool);
+    assert.notEqual(index, -1, `workflow must mention ${tool}`);
+    assert.ok(index > lastIndex, `workflow must mention ${tool} after prior tools`);
+    lastIndex = index;
+  }
+
+  assert.match(workflowSection, /callable:\s*true/i);
+  assert.match(workflowSection, /found_not_callable/i);
+});

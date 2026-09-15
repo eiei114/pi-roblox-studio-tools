@@ -1,5 +1,8 @@
 # Examples
 
+For supported platforms, install options, readiness troubleshooting, and the
+maintainer `npm run ci` path, see [`setup.md`](setup.md).
+
 ## Extension command
 
 `extensions/index.ts` registers:

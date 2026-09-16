@@ -32,6 +32,11 @@ The package locates the official `StudioMCP` command on Windows and macOS. MCP t
 - No generic mutation `tools/call` wrapper in this package slice
 - TypeScript-first Pi package structure
 
+## Setup and verification
+
+For supported platforms, prerequisites, install options, and the end-user
+status → inventory verification path, see [`docs/setup.md`](docs/setup.md).
+
 ## Install
 
 Install the published npm package with Pi:
@@ -107,7 +112,7 @@ macOS:
 | `extensions/` | Pi TypeScript extension entrypoints |
 | `lib/` | Shared StudioMCP discovery and one-shot stdio MCP client helpers |
 | `skills/` | Agent Skill for Roblox Studio MCP workflow guidance |
-| `docs/` | Architecture, release, and setup docs |
+| `docs/` | Setup, architecture, release, and examples |
 
 ## Development
 

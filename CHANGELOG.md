@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.1] - 2026-09-25
+
+### Changed
+
+- Simplify `formatStatus` notify mapping in the Roblox Studio extension (info when callable, warning otherwise).
+
 ## [0.3.0] - 2026-09-03
 
 ### Added

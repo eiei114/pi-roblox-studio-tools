@@ -42,7 +42,7 @@ export default function (pi: ExtensionAPI) {
     handler: async (_args, ctx) => {
       const status = await resolveStudioMcpCommand();
       const text = formatStatus(status, true);
-      const level = status.callable ? "info" : status.found ? "warning" : "warning";
+      const level = status.callable ? "info" : "warning";
       ctx.ui.notify(text, level);
     },
   });

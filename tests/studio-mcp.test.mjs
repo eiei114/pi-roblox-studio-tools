@@ -3,9 +3,27 @@ import test from "node:test";
 
 const { getStudioMcpCandidates, resolveStudioMcpCommand } = await import("../lib/studio-mcp.ts");
 
-test("windows candidates include Roblox mcp.bat", () => {
+test("windows candidates preserve a normalized Windows LOCALAPPDATA path", () => {
   const candidates = getStudioMcpCandidates("win32", { LOCALAPPDATA: "C:\\Users\\Test\\AppData\\Local" });
+
+  assert.deepEqual(
+    candidates.map(({ command }) => command),
+    [
+      "C:\\Users\\Test\\AppData\\Local\\Roblox\\mcp.bat",
+      "C:\\Users\\Test\\AppData\\Local\\Roblox Studio\\StudioMCP.exe",
+    ],
+  );
+});
+
+test("windows candidates normalize slash-separated LOCALAPPDATA paths", () => {
+  const candidates = getStudioMcpCandidates("win32", { LOCALAPPDATA: "C:/Users/Test/AppData/Local/" });
+
   assert.equal(candidates[0].command, "C:\\Users\\Test\\AppData\\Local\\Roblox\\mcp.bat");
+  assert.equal(candidates[1].command, "C:\\Users\\Test\\AppData\\Local\\Roblox Studio\\StudioMCP.exe");
+});
+
+test("missing Windows LOCALAPPDATA produces no invalid candidates", () => {
+  assert.deepEqual(getStudioMcpCandidates("win32", {}), []);
 });
 
 test("macOS candidates include RobloxStudio.app StudioMCP", () => {

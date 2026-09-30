@@ -1,6 +1,6 @@
 {
   "name": "pi-roblox-studio-tools",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "On-demand Roblox Studio MCP tools for Pi without a long-running MCP server.",
   "type": "module",
   "license": "MIT",
@@ -54,7 +54,7 @@
     "typebox": "*"
   },
   "devDependencies": {
-    "@earendil-works/pi-coding-agent": "^0.85.1",
+    "@earendil-works/pi-coding-agent": "^0.99.1",
     "typebox": "latest",
     "@types/node": "^26.1.1",
     "typescript": "^7.0.2"

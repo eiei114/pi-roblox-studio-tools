@@ -10,6 +10,8 @@ completed/dropped. It is **not** shipped in the npm tarball (`package.json`
 `files`), so editing it never forces a consumer version bump or a
 `CHANGELOG.md` entry (see `scripts/check-version-bump.mjs`).
 
+Last refreshed: 2026-10-05 (post-0.3.2 maintenance review).
+
 ---
 
 ## 1. Current release status
@@ -17,12 +19,12 @@ completed/dropped. It is **not** shipped in the npm tarball (`package.json`
 | Field | Value |
 |---|---|
 | Package | `pi-roblox-studio-tools` |
-| `package.json` version | `0.3.0` |
-| Latest GitHub release | [`v0.3.0`](https://github.com/eiei114/pi-roblox-studio-tools/releases/tag/v0.3.0) (2026-09-03) |
-| npm `latest` | `0.3.0` |
+| `package.json` version | `0.3.2` |
+| Latest GitHub release | [`v0.3.2`](https://github.com/eiei114/pi-roblox-studio-tools/releases/tag/v0.3.2) (2026-09-30) |
+| npm `latest` | `0.3.2` (verify registry state before publishing) |
 | Release mechanism | npm Trusted Publishing (OIDC) via `auto-release.yml` → `publish.yml` |
-| Open PRs | [#42](https://github.com/eiei114/pi-roblox-studio-tools/pull/42) dependabot dev-dep bump |
-| Open GitHub issues | none |
+| Open PRs | Track live status in [GitHub pull requests](https://github.com/eiei114/pi-roblox-studio-tools/pulls); this roadmap intentionally avoids stale counts |
+| Open GitHub issues | Track live status in [GitHub issues](https://github.com/eiei114/pi-roblox-studio-tools/issues); this roadmap intentionally avoids stale counts |
 
 ### Publish-history note
 
@@ -32,7 +34,7 @@ Publishing handoff was realigned to the `pi-extension-template` contract in
 `CHANGELOG.md` still documents the intermediate versions for completeness.
 See `docs/release.md` → "Incident: E404 on v0.2.4".
 
-### What is shipped today (0.3.0)
+### What is shipped today (0.3.2)
 
 - **Command**: `/roblox-studio-mcp-status`
 - **Tools**:
@@ -47,6 +49,8 @@ See `docs/release.md` → "Incident: E404 on v0.2.4".
 - **Skill**: `skills/roblox-studio/SKILL.md`
 - **CI/release**: typecheck + `node:test` + `npm pack --dry-run` +
   `publish:guard`; OIDC Trusted Publishing.
+- **Maintenance since 0.3.0**: setup/verification guidance was added and the
+  Pi SDK development dependency was updated for the 0.3.2 line.
 
 ### What is intentionally deferred
 
@@ -63,13 +67,19 @@ See `docs/release.md` → "Incident: E404 on v0.2.4".
 These are directional, not committed dates. Each release stays small and
 reversible.
 
-### 0.3.1 — housekeeping patch (maintenance)
+### 0.3.3 — maintenance follow-up
 
-Goal: close small doc/code hygiene seeds without changing runtime behavior.
+Goal: close small documentation and test-coverage gaps without widening the
+runtime surface or requiring a feature release.
 
-- Link this roadmap from `README.md` and `docs/template-checklist.md` (seed **DOC-002**).
-- Collapse the redundant `formatStatus` notify ternary in `extensions/index.ts` (seed **CLEANUP-001**).
-- Triage or merge the dependabot queue ([#42](https://github.com/eiei114/pi-roblox-studio-tools/pull/42)).
+- Make this roadmap discoverable from `README.md` and
+  `docs/template-checklist.md` (seed **DOC-002**).
+- Add direct coverage for platform-specific spawn and filesystem helpers (seed
+  **TEST-001**).
+- Add regression coverage for inventory output caps and control-character
+  stripping (seed **TEST-002**).
+- Refresh the template checklist to reflect the already-published package
+  (seed **DOC-003**).
 
 ### 0.4.0 — gated mutation slice: `tools/call` (feature)
 
@@ -83,7 +93,14 @@ tools are stable in production.
 
 ---
 
-## 3. Known technical debt
+## 3. Recommended next seed
+
+**DOC-002 — Reference `ROADMAP.md` from README + template-checklist** is the
+next bounded candidate. It is documentation-only, has no runtime or release
+risk, and makes future maintenance seeds discoverable. Acceptance is limited
+to two links/checklist updates plus `npm run ci`.
+
+## 4. Known technical debt
 
 Each item is small, localized, and suitable for a micro-seed.
 
@@ -100,7 +117,7 @@ Each item is small, localized, and suitable for a micro-seed.
 
 ---
 
-## 4. Improvement areas
+## 5. Improvement areas
 
 - **Feature surface** — ship the gated on-demand `tools/call` Pi tool (Section 2, FEAT-002). This is the remaining core value gap.
 - **Documentation** — keep public docs truthful about shipped vs. planned surface; make this roadmap discoverable (DOC-002).
@@ -110,7 +127,7 @@ Each item is small, localized, and suitable for a micro-seed.
 
 ---
 
-## 5. Candidate maintenance seeds (30–90 minutes each)
+## 6. Candidate maintenance seeds (30–90 minutes each)
 
 Each seed is scoped to a single PR, has explicit acceptance criteria, and is
 sized for one focused session. Promote any of these into a tracked issue via
@@ -194,7 +211,7 @@ subsection, and add ongoing maintenance items (ROADMAP refresh, dependabot triag
 
 ---
 
-## 6. How to use this roadmap
+## 7. How to use this roadmap
 
 - **Promoting a seed**: create an issue, set `roadmap_project_slug =
   pi-roblox-studio-tools`, and reference the seed ID here. After merge, edit

@@ -72,8 +72,6 @@ reversible.
 Goal: close small documentation and test-coverage gaps without widening the
 runtime surface or requiring a feature release.
 
-- Make this roadmap discoverable from `README.md` and
-  `docs/template-checklist.md` (seed **DOC-002**).
 - Add direct coverage for platform-specific spawn and filesystem helpers (seed
   **TEST-001**).
 - Add regression coverage for inventory output caps and control-character
@@ -95,10 +93,10 @@ tools are stable in production.
 
 ## 3. Recommended next seed
 
-**DOC-002 — Reference `ROADMAP.md` from README + template-checklist** is the
-next bounded candidate. It is documentation-only, has no runtime or release
-risk, and makes future maintenance seeds discoverable. Acceptance is limited
-to two links/checklist updates plus `npm run ci`.
+**TEST-001 — Unit-test `makeSpawnCommand` + `pathExists`** is the next bounded
+candidate. It is test-only, has no runtime or release risk, and locks the
+platform-specific spawn and filesystem fallbacks that CI cannot exercise
+directly. Acceptance is limited to the two helper cases plus `npm run ci`.
 
 ## 4. Known technical debt
 
@@ -113,14 +111,14 @@ Each item is small, localized, and suitable for a micro-seed.
 | TD-5 | Tests | `makeSpawnCommand` (Windows `.bat`/`.cmd` wrapping) and `pathExists` (`X_OK` → `F_OK` fallback) lack direct unit tests | Open |
 | TD-6 | CI | CI runs only `ubuntu-latest`; the `cmd.exe` spawn branch is only exercised at runtime on Windows | Open |
 | TD-7 | Docs | `docs/template-checklist.md` leaves several publish-time checks unchecked | Open |
-| TD-8 | Docs | `ROADMAP.md` is not linked from `README.md` or the template checklist | Open |
+| TD-8 | Docs | `ROADMAP.md` is not linked from `README.md` or the template checklist | **Resolved** (README + template-checklist links, #44) |
 
 ---
 
 ## 5. Improvement areas
 
 - **Feature surface** — ship the gated on-demand `tools/call` Pi tool (Section 2, FEAT-002). This is the remaining core value gap.
-- **Documentation** — keep public docs truthful about shipped vs. planned surface; make this roadmap discoverable (DOC-002).
+- **Documentation** — keep public docs truthful about shipped vs. planned surface; the roadmap is now linked from `README.md` and `docs/template-checklist.md`.
 - **Tests** — add direct unit coverage for platform-specific spawn and filesystem helpers (TEST-001) so behavior is locked without a real Roblox install.
 - **Reliability** — tighten timeout/abort coverage and surface stderr in tool results; document the `StudioMcpProcessRegistry` `session_shutdown` contract.
 - **CI** — add a Windows runner to exercise the `cmd.exe` spawn path (CI-001, stretch).
@@ -141,13 +139,13 @@ the Weekly maintenance seed planner. Seeds are independent unless noted.
 | DOC-001 | Align architecture/examples docs to shipped surface | 30–45m | — | **done** (0.3.0) |
 | INFRA-001 | Stop hardcoding `CLIENT_INFO.version` | 30–60m | — | **done** (0.2.8) |
 | FEAT-001 | Ship read-only `roblox_studio_mcp_list_tools` + `list_studios` | 60–90m | — | **done** (0.3.0) |
-| DOC-002 | Reference ROADMAP.md from README + template-checklist | 15–30m | — | Open |
+| DOC-002 | Reference ROADMAP.md from README + template-checklist | 15–30m | — | **done** (README + template-checklist links, #44) |
 | CLEANUP-001 | Collapse redundant `formatStatus` notify ternary | 15–30m | — | Open |
 | TEST-001 | Unit-test `makeSpawnCommand` + `pathExists` | 30–45m | — | Open |
 | TEST-002 | Add inventory cap edge-case regression tests | 30–60m | — | Open |
 | DOC-003 | Refresh template-checklist for post-0.3.0 shipped state | 30–45m | — | Open |
 
-### DOC-002 — Reference ROADMAP.md from README + template-checklist
+### DOC-002 — Reference ROADMAP.md from README + template-checklist (done)
 
 **Why**: this roadmap should be discoverable by maintainers and the Weekly
 maintenance seed planner. Without links, the file exists but is effectively
@@ -155,9 +153,9 @@ invisible.
 **Scope**: add a one-line link from `README.md` ("Links" or "Package contents")
 and a checklist item in `docs/template-checklist.md`.
 **Acceptance criteria**:
-- [ ] `README.md` links to `ROADMAP.md`.
-- [ ] `docs/template-checklist.md` has a "ROADMAP.md を用意する" item.
-- [ ] `npm run ci` passes.
+- [x] `README.md` links to `ROADMAP.md` (#44).
+- [x] `docs/template-checklist.md` has a "ROADMAP.md を用意する" item (#44).
+- [x] `npm run ci` passes.
 
 ### CLEANUP-001 — Collapse redundant `formatStatus` notify ternary
 

@@ -10,6 +10,8 @@ completed/dropped. It is **not** shipped in the npm tarball (`package.json`
 `files`), so editing it never forces a consumer version bump or a
 `CHANGELOG.md` entry (see `scripts/check-version-bump.mjs`).
 
+Last refreshed: 2026-10-05 (post-0.3.2 maintenance review).
+
 ---
 
 ## 1. Current release status
@@ -17,12 +19,12 @@ completed/dropped. It is **not** shipped in the npm tarball (`package.json`
 | Field | Value |
 |---|---|
 | Package | `pi-roblox-studio-tools` |
-| `package.json` version | `0.3.0` |
-| Latest GitHub release | [`v0.3.0`](https://github.com/eiei114/pi-roblox-studio-tools/releases/tag/v0.3.0) (2026-09-03) |
-| npm `latest` | `0.3.0` |
+| `package.json` version | `0.3.2` |
+| Latest GitHub release | [`v0.3.2`](https://github.com/eiei114/pi-roblox-studio-tools/releases/tag/v0.3.2) (2026-09-30) |
+| npm `latest` | `0.3.2` (verify registry state before publishing) |
 | Release mechanism | npm Trusted Publishing (OIDC) via `auto-release.yml` → `publish.yml` |
-| Open PRs | [#42](https://github.com/eiei114/pi-roblox-studio-tools/pull/42) dependabot dev-dep bump |
-| Open GitHub issues | none |
+| Open PRs | Track live status in [GitHub pull requests](https://github.com/eiei114/pi-roblox-studio-tools/pulls); this roadmap intentionally avoids stale counts |
+| Open GitHub issues | Track live status in [GitHub issues](https://github.com/eiei114/pi-roblox-studio-tools/issues); this roadmap intentionally avoids stale counts |
 
 ### Publish-history note
 
@@ -32,7 +34,7 @@ Publishing handoff was realigned to the `pi-extension-template` contract in
 `CHANGELOG.md` still documents the intermediate versions for completeness.
 See `docs/release.md` → "Incident: E404 on v0.2.4".
 
-### What is shipped today (0.3.0)
+### What is shipped today (0.3.2)
 
 - **Command**: `/roblox-studio-mcp-status`
 - **Tools**:
@@ -47,6 +49,8 @@ See `docs/release.md` → "Incident: E404 on v0.2.4".
 - **Skill**: `skills/roblox-studio/SKILL.md`
 - **CI/release**: typecheck + `node:test` + `npm pack --dry-run` +
   `publish:guard`; OIDC Trusted Publishing.
+- **Maintenance since 0.3.0**: setup/verification guidance was added and the
+  Pi SDK development dependency was updated for the 0.3.2 line.
 
 ### What is intentionally deferred
 
@@ -63,13 +67,17 @@ See `docs/release.md` → "Incident: E404 on v0.2.4".
 These are directional, not committed dates. Each release stays small and
 reversible.
 
-### 0.3.1 — housekeeping patch (maintenance)
+### 0.3.3 — maintenance follow-up
 
-Goal: close small doc/code hygiene seeds without changing runtime behavior.
+Goal: close small documentation and test-coverage gaps without widening the
+runtime surface or requiring a feature release.
 
-- Link this roadmap from `README.md` and `docs/template-checklist.md` (seed **DOC-002**).
-- Collapse the redundant `formatStatus` notify ternary in `extensions/index.ts` (seed **CLEANUP-001**).
-- Triage or merge the dependabot queue ([#42](https://github.com/eiei114/pi-roblox-studio-tools/pull/42)).
+- Add direct coverage for platform-specific spawn and filesystem helpers (seed
+  **TEST-001**).
+- Add regression coverage for inventory output caps and control-character
+  stripping (seed **TEST-002**).
+- Refresh the template checklist to reflect the already-published package
+  (seed **DOC-003**).
 
 ### 0.4.0 — gated mutation slice: `tools/call` (feature)
 
@@ -83,7 +91,14 @@ tools are stable in production.
 
 ---
 
-## 3. Known technical debt
+## 3. Recommended next seed
+
+**TEST-001 — Unit-test `makeSpawnCommand` + `pathExists`** is the next bounded
+candidate. It is test-only, has no runtime or release risk, and locks the
+platform-specific spawn and filesystem fallbacks that CI cannot exercise
+directly. Acceptance is limited to the two helper cases plus `npm run ci`.
+
+## 4. Known technical debt
 
 Each item is small, localized, and suitable for a micro-seed.
 
@@ -96,21 +111,21 @@ Each item is small, localized, and suitable for a micro-seed.
 | TD-5 | Tests | `makeSpawnCommand` (Windows `.bat`/`.cmd` wrapping) and `pathExists` (`X_OK` → `F_OK` fallback) lack direct unit tests | Open |
 | TD-6 | CI | CI runs only `ubuntu-latest`; the `cmd.exe` spawn branch is only exercised at runtime on Windows | Open |
 | TD-7 | Docs | `docs/template-checklist.md` leaves several publish-time checks unchecked | Open |
-| TD-8 | Docs | `ROADMAP.md` is not linked from `README.md` or the template checklist | Open |
+| TD-8 | Docs | `ROADMAP.md` is not linked from `README.md` or the template checklist | **Resolved** (README + template-checklist links, #44) |
 
 ---
 
-## 4. Improvement areas
+## 5. Improvement areas
 
 - **Feature surface** — ship the gated on-demand `tools/call` Pi tool (Section 2, FEAT-002). This is the remaining core value gap.
-- **Documentation** — keep public docs truthful about shipped vs. planned surface; make this roadmap discoverable (DOC-002).
+- **Documentation** — keep public docs truthful about shipped vs. planned surface; the roadmap is now linked from `README.md` and `docs/template-checklist.md`.
 - **Tests** — add direct unit coverage for platform-specific spawn and filesystem helpers (TEST-001) so behavior is locked without a real Roblox install.
 - **Reliability** — tighten timeout/abort coverage and surface stderr in tool results; document the `StudioMcpProcessRegistry` `session_shutdown` contract.
 - **CI** — add a Windows runner to exercise the `cmd.exe` spawn path (CI-001, stretch).
 
 ---
 
-## 5. Candidate maintenance seeds (30–90 minutes each)
+## 6. Candidate maintenance seeds (30–90 minutes each)
 
 Each seed is scoped to a single PR, has explicit acceptance criteria, and is
 sized for one focused session. Promote any of these into a tracked issue via
@@ -124,13 +139,13 @@ the Weekly maintenance seed planner. Seeds are independent unless noted.
 | DOC-001 | Align architecture/examples docs to shipped surface | 30–45m | — | **done** (0.3.0) |
 | INFRA-001 | Stop hardcoding `CLIENT_INFO.version` | 30–60m | — | **done** (0.2.8) |
 | FEAT-001 | Ship read-only `roblox_studio_mcp_list_tools` + `list_studios` | 60–90m | — | **done** (0.3.0) |
-| DOC-002 | Reference ROADMAP.md from README + template-checklist | 15–30m | — | Open |
+| DOC-002 | Reference ROADMAP.md from README + template-checklist | 15–30m | — | **done** (README + template-checklist links, #44) |
 | CLEANUP-001 | Collapse redundant `formatStatus` notify ternary | 15–30m | — | Open |
 | TEST-001 | Unit-test `makeSpawnCommand` + `pathExists` | 30–45m | — | Open |
 | TEST-002 | Add inventory cap edge-case regression tests | 30–60m | — | Open |
 | DOC-003 | Refresh template-checklist for post-0.3.0 shipped state | 30–45m | — | Open |
 
-### DOC-002 — Reference ROADMAP.md from README + template-checklist
+### DOC-002 — Reference ROADMAP.md from README + template-checklist (done)
 
 **Why**: this roadmap should be discoverable by maintainers and the Weekly
 maintenance seed planner. Without links, the file exists but is effectively
@@ -138,9 +153,9 @@ invisible.
 **Scope**: add a one-line link from `README.md` ("Links" or "Package contents")
 and a checklist item in `docs/template-checklist.md`.
 **Acceptance criteria**:
-- [ ] `README.md` links to `ROADMAP.md`.
-- [ ] `docs/template-checklist.md` has a "ROADMAP.md を用意する" item.
-- [ ] `npm run ci` passes.
+- [x] `README.md` links to `ROADMAP.md` (#44).
+- [x] `docs/template-checklist.md` has a "ROADMAP.md を用意する" item (#44).
+- [x] `npm run ci` passes.
 
 ### CLEANUP-001 — Collapse redundant `formatStatus` notify ternary
 
@@ -194,7 +209,7 @@ subsection, and add ongoing maintenance items (ROADMAP refresh, dependabot triag
 
 ---
 
-## 6. How to use this roadmap
+## 7. How to use this roadmap
 
 - **Promoting a seed**: create an issue, set `roadmap_project_slug =
   pi-roblox-studio-tools`, and reference the seed ID here. After merge, edit

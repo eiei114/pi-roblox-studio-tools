@@ -122,20 +122,17 @@ npm run ci
 npm pack --dry-run
 ```
 
-`npm run ci` runs `npm run typecheck`, `npm test`, `npm run pack:check` (`npm pack --dry-run`), and `npm run publish:guard` (fails if workflow files reference `NPM_TOKEN` or `NODE_AUTH_TOKEN`). Verify that publish workflows use npm Trusted Publishing (OIDC). Run `npm pack --dry-run` directly when you only need to verify the published tarball contents.
+`npm run ci` runs `npm run typecheck`, `npm test`, `npm run smoke:pi`, `npm run pack:check` (`npm pack --dry-run`), and `npm run publish:guard` (fails if workflow files reference `NPM_TOKEN` or `NODE_AUTH_TOKEN`). The Pi smoke uses the installed SDK in an isolated RPC process to check extension registration, status responses, a handled missing-StudioMCP case, reload/cleanup, and the native host shell; it makes no model requests. Verify that publish workflows use npm Trusted Publishing (OIDC). Run `npm pack --dry-run` directly when you only need to verify the published tarball contents.
 
 ## Release
 
 This package uses npm Trusted Publishing with GitHub Actions OIDC, so no
 `NPM_TOKEN` is required.
 
-```bash
-npm version patch
-git push
-```
-
-On `main`, a `package.json` version bump triggers auto-release, which creates
-the tag and dispatches `publish.yml`.
+Ordinary main merges, including version bumps, run CI only. They do not create
+tags or releases and do not publish to npm. Release creation requires separate
+authorization and a manual dispatch of `.github/workflows/auto-release.yml` on
+`main`.
 
 See [`docs/release.md`](docs/release.md) for setup details.
 

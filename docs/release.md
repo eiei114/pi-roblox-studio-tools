@@ -16,17 +16,20 @@ On npmjs.com, configure Trusted Publishing for this package:
 - Repository: this GitHub repository
 - Workflow filename: `publish.yml`
 
-## Publish
+## Release and publish
 
-```bash
-npm version patch
-git push
-```
+Ordinary code and version-bump merges run CI only; they do not create a tag,
+release, or publish an npm package. Release creation is a separate protected
+action: after explicit release authorization, manually dispatch
+`.github/workflows/auto-release.yml` on `main`.
 
-On `main`, `.github/workflows/auto-release.yml` checks `package.json` version. If `v<version>` does not exist yet, it creates the tag, creates the GitHub Release, then explicitly dispatches `.github/workflows/publish.yml` for that tag.
+The manual release workflow checks the repository version. If `v<version>` does
+not exist yet, it creates the tag and GitHub Release, then explicitly dispatches
+`.github/workflows/publish.yml` for that tag.
 
-The `v*.*.*` tag also triggers `.github/workflows/publish.yml`, which runs CI and publishes to npm when tags are pushed manually.
-Publishing also runs when a GitHub Release is published, and can be run manually from GitHub Actions with `workflow_dispatch`.
+`.github/workflows/publish.yml` accepts version tags, published GitHub Releases,
+or an explicit `workflow_dispatch`. These are protected release actions and are
+not part of routine maintenance verification.
 
 The workflow skips `name@version` if that exact package version already exists on npm.
 
@@ -35,8 +38,8 @@ The workflow skips `name@version` if that exact package version already exists o
 Do not ship a new Pi OSS package or version bump with only `package.json` changes.
 The repository must include the release workflow pair:
 
-- `.github/workflows/auto-release.yml` creates `v<version>` tags and GitHub Releases from `main` version bumps.
-- `.github/workflows/publish.yml` publishes to npm through Trusted Publishing.
+- `.github/workflows/auto-release.yml` creates `v<version>` tags and GitHub Releases only after manual dispatch on `main`.
+- `.github/workflows/publish.yml` publishes to npm only from version tags, published releases, or explicit dispatch.
 
 Important: tags or releases created by `GITHUB_TOKEN` do not reliably fan out into another workflow through normal `push.tags` or `release.published` triggers. The template keeps publishing reliable by having `auto-release.yml` explicitly dispatch `publish.yml` after creating the tag/release. If you change the release flow, keep one explicit handoff path: `workflow_dispatch` from auto-release, `repository_dispatch`, or `workflow_run` on the auto-release workflow.
 

@@ -157,10 +157,14 @@ npm run ci
 
 1. `npm run typecheck` — TypeScript strict check
 2. `npm test` — `node:test` suite including doc alignment tests
-3. `npm run pack:check` — `npm pack --dry-run` tarball validation
-4. `npm run publish:guard` — fails if workflow files reference npm tokens
+3. `npm run smoke:pi` — isolated Pi RPC checks on the pinned SDK, without model inference
+4. `npm run pack:check` — `npm pack --dry-run` tarball validation
+5. `npm run publish:guard` — fails if workflow files reference npm tokens
 
-Optional local Pi smoke test after `pi -e .`:
+The Pi smoke exercises extension registration, the status command's normal and
+handled negative responses, a second Pi process, clean shutdown, and the native
+host shell. It does not modify global Pi settings or require paid inference.
+For a separate interactive check after `pi -e .`:
 
 ```txt
 /roblox-studio-mcp-status

@@ -54,7 +54,8 @@
 - [ ] `NPM_TOKEN` リポジトリ secret が **未設定** であることを確認する
 - [ ] `npm run publish:guard` が通る（workflow に token 参照がないこと）
 - [ ] `auto-release.yml` + `publish.yml` のペアが揃っていることを確認する
-- [ ] main への version bump で auto-release → publish が通ることを確認する
+- [ ] ordinary main merges (including version bumps) do not trigger release or publish
+- [ ] release creation is manual on main; publish accepts only authorized tags, releases, or explicit dispatch
 
 ## Before first release
 

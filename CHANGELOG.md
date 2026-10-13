@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.3] - 2026-10-12
+
+### Changed
+
+- Verify Pi SDK 1.1.0 compatibility with exact dev/test pins and an actual Pi-host smoke test.
+- Keep ordinary package-version merges separate from release and npm publication actions.
+
 ## [0.3.2] - 2026-09-30
 
 ### Changed

@@ -8,6 +8,57 @@ export const SDK_VERSIONS = {
 export const UNHANDLED_ERROR_PATTERN = /UnhandledPromiseRejection|uncaught exception|shutdown error/i;
 export const EXTENSION_LOAD_ERROR_PATTERN = /Failed to load extension|Error loading extension/i;
 
+const windowsSeparator = String.raw`[/\\]{1,4}`;
+const windowsUserName = String.raw`[^/\\]+`;
+const windowsUserProfilePattern = new RegExp(`[A-Z]:${windowsSeparator}Users${windowsSeparator}${windowsUserName}`, "i");
+const robloxPathPattern = new RegExp(`[A-Z]:${windowsSeparator}Users${windowsSeparator}${windowsUserName}${windowsSeparator}AppData${windowsSeparator}Local${windowsSeparator}Roblox`, "gi");
+const unixUserProfilePattern = /\/(?:home|Users)\/[^/\\\s"<>]+/i;
+const rpcIdPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+
+function localPathForms(path) {
+  const variants = new Set([path, path.replaceAll("\\", "/"), path.replaceAll("/", "\\")]);
+  const forms = new Set();
+  for (let form of variants) {
+    for (let depth = 0; depth < 4; depth += 1) {
+      forms.add(form);
+      form = form.replaceAll("\\", "\\\\");
+    }
+  }
+  return forms;
+}
+
+export function redactLocalPaths(value, localPaths = []) {
+  if (typeof value === "string") {
+    let redacted = value.replace(robloxPathPattern, "%LOCALAPPDATA%\\Roblox");
+    for (const { path, replacement } of [...localPaths]
+      .filter(({ path, replacement }) => typeof path === "string" && path && replacement)
+      .sort((left, right) => right.path.length - left.path.length)) {
+      for (const form of localPathForms(path)) redacted = redacted.replaceAll(form, replacement);
+    }
+    return redacted.replace(rpcIdPattern, "<rpc-id>")
+      .replaceAll(new RegExp(windowsUserProfilePattern.source, "gi"), "<user-profile>")
+      .replaceAll(new RegExp(unixUserProfilePattern.source, "gi"), "<user-profile>");
+  }
+  if (Array.isArray(value)) return value.map((item) => redactLocalPaths(item, localPaths));
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, redactLocalPaths(item, localPaths)]));
+  }
+  return value;
+}
+
+export function containsUnredactedLocalPaths(value, localPaths = []) {
+  if (typeof value === "string") {
+    return localPaths.some(({ path }) => typeof path === "string" && path
+      && [...localPathForms(path)].some((form) => value.includes(form)))
+      || windowsUserProfilePattern.test(value) || unixUserProfilePattern.test(value);
+  }
+  if (Array.isArray(value)) return value.some((item) => containsUnredactedLocalPaths(item, localPaths));
+  if (value && typeof value === "object") {
+    return Object.values(value).some((item) => containsUnredactedLocalPaths(item, localPaths));
+  }
+  return false;
+}
+
 export function parseJsonLines(output) {
   return output.split(/\r?\n/).flatMap((line) => {
     if (!line.trim()) return [];

@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { behaviorAssertions, parseJsonLines, SDK_VERSIONS, VERIFICATION_CONTRACT } from "../scripts/pi-sdk-smoke-contract.mjs";
+import {
+  behaviorAssertions, containsUnredactedLocalPaths, parseJsonLines, redactLocalPaths,
+  SDK_VERSIONS, VERIFICATION_CONTRACT,
+} from "../scripts/pi-sdk-smoke-contract.mjs";
 
 const registration = { type: "response", command: "get_commands", success: true, data: { commands: [
   { name: "roblox-studio-mcp-status", source: "extension" },
@@ -19,6 +22,40 @@ test("frozen SDK contract and JSON-lines parsing", () => {
   assert.equal(VERIFICATION_CONTRACT, "pi-sdk-behavior-v2");
   assert.deepEqual(Object.values(SDK_VERSIONS), ["1.1.0", "1.1.0", "1.1.0", "1.1.0"]);
   assert.deepEqual(parseJsonLines(`not-json\r\n${JSON.stringify(prompt)}\n\n`), [prompt]);
+});
+
+test("smoke report redaction covers raw and JSON-escaped local paths", () => {
+  const workspace = String.raw`C:\Users\Keisu\workspace\repo`;
+  const home = String.raw`C:\Users\Keisu`;
+  const otherUserPath = String.raw`D:\Users\Other\Documents\report.json`;
+  const robloxPath = String.raw`C:\Users\Keisu\AppData\Local\Roblox\mcp.bat`;
+  const localPaths = [
+    { path: workspace, replacement: "<checkout>" },
+    { path: home, replacement: "<home>" },
+  ];
+  const input = {
+    rawWorkspace: workspace,
+    escapedWorkspace: JSON.stringify({ sourceInfo: { path: workspace } }),
+    escapedHome: JSON.stringify(home),
+    escapedOtherUserPath: JSON.stringify(otherUserPath),
+    escapedRobloxPath: JSON.stringify(robloxPath),
+    rpcId: "rpc id: 12345678-1234-abcd-5678-1234567890ab",
+  };
+
+  const sanitized = redactLocalPaths(input, localPaths);
+  assert.equal(sanitized.rawWorkspace, "<checkout>");
+  assert.equal(sanitized.escapedWorkspace.includes("<checkout>"), true);
+  assert.equal(sanitized.escapedHome.includes("<home>"), true);
+  assert.equal(sanitized.escapedOtherUserPath.includes("<user-profile>"), true);
+  assert.equal(sanitized.escapedRobloxPath.includes("%LOCALAPPDATA%"), true);
+  assert.equal(sanitized.rpcId, "rpc id: <rpc-id>");
+  assert.equal(containsUnredactedLocalPaths(JSON.stringify(sanitized), localPaths), false);
+});
+
+test("smoke report privacy assertion rejects raw and escaped user-profile paths", () => {
+  const rawPath = String.raw`C:\Users\Someone\workspace\repo`;
+  assert.equal(containsUnredactedLocalPaths(rawPath), true);
+  assert.equal(containsUnredactedLocalPaths(JSON.stringify({ path: rawPath })), true);
 });
 
 test("extension registration requires the actual package command", () => {

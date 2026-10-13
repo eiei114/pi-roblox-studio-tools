@@ -1,10 +1,10 @@
 import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import {
-  behaviorAssertions, EXTENSION_LOAD_ERROR_PATTERN, parseJsonLines, SDK_VERSIONS,
-  UNHANDLED_ERROR_PATTERN, VERIFICATION_CONTRACT,
+  behaviorAssertions, containsUnredactedLocalPaths, EXTENSION_LOAD_ERROR_PATTERN, parseJsonLines,
+  redactLocalPaths, SDK_VERSIONS, UNHANDLED_ERROR_PATTERN, VERIFICATION_CONTRACT,
 } from "./pi-sdk-smoke-contract.mjs";
 
 const PROBE_TIMEOUT_MS = 15_000;
@@ -145,21 +145,6 @@ function promptRequest(id) {
   return { id, type: "prompt", message: "/roblox-studio-mcp-status" };
 }
 
-function redactLocalPaths(value) {
-  if (typeof value === "string") {
-    return value.replaceAll(root, "<checkout>")
-      .replaceAll(missingStudioDir, "<isolated-LOCALAPPDATA>")
-      .replaceAll(missingStudioDir.replaceAll("\\", "\\\\"), "<isolated-LOCALAPPDATA>")
-      .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "<rpc-id>")
-      .replace(/[A-Z]:\\Users\\[^\\]+\\AppData\\Local\\Roblox/g, "%LOCALAPPDATA%\\Roblox");
-  }
-  if (Array.isArray(value)) return value.map(redactLocalPaths);
-  if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, redactLocalPaths(item)]));
-  }
-  return value;
-}
-
 function responseComplete(responses) {
   const prompt = responses.find((row) => row?.type === "response" && row.command === "prompt");
   const notification = responses.find((row) => row?.type === "extension_ui_request" && row.method === "notify");
@@ -191,14 +176,25 @@ try {
   const cases = [extensionLoad, happyPath, errorPath, reloadCleanup, hostShell];
   const report = { schema_version: 1, verification_contract: VERIFICATION_CONTRACT, sdk_versions: sdkVersions,
     platform: process.platform, model_inference: "none; the real extension command is invoked directly over Pi RPC",
-    evidence_redactions: "Captured output is retained; checkout and user-local Roblox paths are replaced with neutral placeholders.",
+    evidence_redactions: "Captured output is retained; checkout, user-profile, and local Roblox paths are redacted in raw and JSON-escaped forms.",
     unhandled_errors: cases.filter((item) => item.unhandledErrors).length,
     extension_load_errors: cases.filter((item) => item.extensionLoadErrors).length,
     cases: cases.map(({ signal, process_exited, timed_out, cleanup_timed_out, extensionLoadErrors,
       unhandledErrors, ...item }) => ({ ...item, assertions: item.assertions,
       evidence: `${item.evidence}\nprocess_exited=${process_exited}; timed_out=${timed_out}; cleanup_timed_out=${cleanup_timed_out}; signal=${signal ?? "none"}` })) };
+  const localPaths = [
+    { path: root, replacement: "<checkout>" },
+    { path: agentDir, replacement: "<isolated-agent-dir>" },
+    { path: missingStudioDir, replacement: "<isolated-LOCALAPPDATA>" },
+    { path: homedir(), replacement: "<home>" },
+    { path: process.env.USERPROFILE, replacement: "<home>" },
+  ];
   mkdirSync(dirname(reportPath), { recursive: true });
-  const serialized = `${JSON.stringify(redactLocalPaths(report), null, 2)}\n`;
+  const sanitizedReport = redactLocalPaths(report, localPaths);
+  const serialized = `${JSON.stringify(sanitizedReport, null, 2)}\n`;
+  if (containsUnredactedLocalPaths(serialized, localPaths)) {
+    throw new Error("Smoke report contains unredacted local paths");
+  }
   const reportTempPath = `${reportPath}.tmp`;
   const { writeFileSync, renameSync } = await import("node:fs");
   writeFileSync(reportTempPath, serialized);

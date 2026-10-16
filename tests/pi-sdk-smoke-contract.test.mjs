@@ -20,7 +20,7 @@ const observed = (responses = [registration, prompt, notification], fullOutput =
 
 test("frozen SDK contract and JSON-lines parsing", () => {
   assert.equal(VERIFICATION_CONTRACT, "pi-sdk-behavior-v2");
-  assert.deepEqual(Object.values(SDK_VERSIONS), ["1.1.0", "1.1.0", "1.1.0", "1.1.0"]);
+  assert.deepEqual(Object.values(SDK_VERSIONS), ["1.2.0", "1.2.0", "1.2.0", "1.2.0"]);
   assert.deepEqual(parseJsonLines(`not-json\r\n${JSON.stringify(prompt)}\n\n`), [prompt]);
 });
 
@@ -104,8 +104,8 @@ test("reload evidence requires second-process registration, feature response and
 });
 
 test("native shell assertion requires exact pinned Pi version and clean exit", () => {
-  assert.equal(behaviorAssertions("host_shell", observed([], "1.1.0\r\n"))[0].passed, true);
-  for (const [output, code, exited] of [["", 0, true], ["11.1.0", 0, true], ["1.1.0 but error", 0, true], ["1.1.0", 1, true], ["1.1.0", 0, false]]) {
+  assert.equal(behaviorAssertions("host_shell", observed([], "1.2.0\r\n"))[0].passed, true);
+  for (const [output, code, exited] of [["", 0, true], ["11.2.0", 0, true], ["1.2.0 but error", 0, true], ["1.2.0", 1, true], ["1.2.0", 0, false]]) {
     assert.equal(behaviorAssertions("host_shell", observed([], output, code, exited))[0].passed, false);
   }
 });

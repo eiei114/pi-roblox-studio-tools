@@ -83,7 +83,41 @@ test("probeStudioMcpInitialize completes initialize without follow-up requests",
   );
 
   assert.equal(result.ok, true);
+  assert.deepEqual(result.serverInfo, { name: "fake", version: "0.0.0" });
   assert.equal(result.error, undefined);
+});
+
+test("probeStudioMcpInitialize reports initialization errors and balances process tracking", async () => {
+  const { probeStudioMcpInitialize } = await import("../lib/stdio-mcp-client.ts");
+  const errorServer = String.raw`
+const readline = require("node:readline");
+const rl = readline.createInterface({ input: process.stdin });
+rl.on("line", (line) => {
+  const message = JSON.parse(line);
+  if (message.method === "initialize") {
+    console.log(JSON.stringify({ jsonrpc: "2.0", id: message.id, error: { code: -32000, message: "initialize rejected" } }));
+  }
+});
+`;
+  let started = 0;
+  let stopped = 0;
+
+  const result = await probeStudioMcpInitialize(
+    { command: process.execPath, args: ["-e", errorServer], source: "node initialize error server" },
+    {
+      timeoutMs: 2000,
+      onProcess: () => started++,
+      onProcessExit: () => stopped++,
+    },
+  );
+
+  assert.deepEqual(result, {
+    ok: false,
+    error: "MCP error -32000: initialize rejected",
+    stderr: "",
+  });
+  assert.equal(started, 1);
+  assert.equal(stopped, 1);
 });
 
 test("runOneShotMcpRequest initializes, sends one request, and returns result", async () => {

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.5] - 2026-10-19
+
+### Changed
+
+- Share StudioMCP stdio session handling between initialization probes and one-shot requests while preserving errors and cleanup.
+
 ## [0.3.4] - 2026-10-16
 
 ### Changed

@@ -137,10 +137,63 @@ export interface StudioMcpInitializeProbeResult {
   error?: string;
 }
 
+type McpSessionResult =
+  | {
+      ok: true;
+      initializeResponse: JsonRpcSuccess;
+      responses: JsonRpcSuccess[];
+      stderr: string;
+    }
+  | { ok: false; error: unknown; stderr: string };
+
 export async function probeStudioMcpInitialize(
   command: StudioMcpCommand,
   options: OneShotMcpOptions = {},
 ): Promise<StudioMcpInitializeProbeResult> {
+  const result = await runMcpSession(command, [], options);
+  if (!result.ok) {
+    return {
+      ok: false,
+      stderr: result.stderr,
+      error: result.error instanceof Error ? result.error.message : String(result.error),
+    };
+  }
+
+  const serverInfo = isRecord(result.initializeResponse.result)
+    ? result.initializeResponse.result.serverInfo
+    : undefined;
+  return { ok: true, serverInfo, stderr: result.stderr };
+}
+
+export async function runOneShotMcpRequest<T = unknown>(
+  command: StudioMcpCommand,
+  method: string,
+  params?: unknown,
+  options: OneShotMcpOptions = {},
+): Promise<OneShotMcpResult<T>> {
+  const result = await runOneShotMcpRequests(command, [{ method, params }], options);
+  const response = result.responses.at(-1);
+  if (!response) throw new Error("MCP sequence completed without a response");
+  return { response: response as JsonRpcSuccess<T>, stderr: result.stderr };
+}
+
+export async function runOneShotMcpRequests(
+  command: StudioMcpCommand,
+  calls: OneShotMcpCall[],
+  options: OneShotMcpOptions = {},
+): Promise<OneShotMcpSequenceResult> {
+  if (calls.length === 0) throw new Error("At least one MCP request is required");
+
+  const result = await runMcpSession(command, calls, options);
+  if (!result.ok) throw result.error;
+  return { responses: result.responses, stderr: result.stderr };
+}
+
+async function runMcpSession(
+  command: StudioMcpCommand,
+  calls: OneShotMcpCall[],
+  options: OneShotMcpOptions,
+): Promise<McpSessionResult> {
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const spawnCommand = makeSpawnCommand(command);
   const child = spawn(spawnCommand.command, spawnCommand.args, {
@@ -265,166 +318,14 @@ export async function probeStudioMcpInitialize(
 
     writeMessage(child, { jsonrpc: "2.0", method: "notifications/initialized" });
 
-    const serverInfo = isRecord(initializeResponse.result) ? initializeResponse.result.serverInfo : undefined;
-    return { ok: true, serverInfo, stderr };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return { ok: false, stderr, error: message };
-  } finally {
-    options.signal?.removeEventListener("abort", abort);
-    await cleanup();
-  }
-}
-
-export async function runOneShotMcpRequest<T = unknown>(
-  command: StudioMcpCommand,
-  method: string,
-  params?: unknown,
-  options: OneShotMcpOptions = {},
-): Promise<OneShotMcpResult<T>> {
-  const result = await runOneShotMcpRequests(command, [{ method, params }], options);
-  const response = result.responses.at(-1);
-  if (!response) throw new Error("MCP sequence completed without a response");
-  return { response: response as JsonRpcSuccess<T>, stderr: result.stderr };
-}
-
-export async function runOneShotMcpRequests(
-  command: StudioMcpCommand,
-  calls: OneShotMcpCall[],
-  options: OneShotMcpOptions = {},
-): Promise<OneShotMcpSequenceResult> {
-  if (calls.length === 0) throw new Error("At least one MCP request is required");
-
-  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const spawnCommand = makeSpawnCommand(command);
-  const child = spawn(spawnCommand.command, spawnCommand.args, {
-    stdio: "pipe",
-    windowsHide: true,
-  });
-
-  options.onProcess?.(child);
-
-  let nextId = 1;
-  let stdoutBuffer = "";
-  let stderr = "";
-  const pending = new Map<number, PendingRequest>();
-
-  const cleanup = async (): Promise<void> => {
-    options.onProcessExit?.(child);
-    child.stdin.end();
-
-    if (child.exitCode !== null || child.killed) return;
-
-    await new Promise<void>((resolve) => {
-      const timer = setTimeout(() => {
-        if (child.exitCode === null && !child.killed) child.kill();
-        resolve();
-      }, 250);
-      child.once("exit", () => {
-        clearTimeout(timer);
-        resolve();
-      });
-    });
-  };
-
-  const failAll = (error: Error): void => {
-    for (const request of pending.values()) request.reject(error);
-    pending.clear();
-  };
-
-  child.stdout.on("data", (chunk: Buffer) => {
-    stdoutBuffer += chunk.toString("utf8");
-
-    while (true) {
-      const newlineIndex = stdoutBuffer.indexOf("\n");
-      if (newlineIndex === -1) break;
-
-      const line = stdoutBuffer.slice(0, newlineIndex).trim();
-      stdoutBuffer = stdoutBuffer.slice(newlineIndex + 1);
-      if (!line) continue;
-
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(line);
-      } catch {
-        failAll(new Error(`Invalid MCP JSON line: ${line}`));
-        continue;
-      }
-
-      if (!isRecord(parsed) || typeof parsed.id !== "number") continue;
-
-      const request = pending.get(parsed.id);
-      if (!request) continue;
-      pending.delete(parsed.id);
-
-      let response: JsonRpcResponse;
-      try {
-        response = parseJsonRpcResponse(parsed);
-      } catch (error) {
-        const reason = error instanceof Error ? error.message : String(error);
-        request.reject(invalidJsonRpcResponseError(reason, line));
-        continue;
-      }
-      request.resolve(response);
-    }
-  });
-
-  child.stderr.on("data", (chunk: Buffer) => {
-    stderr += chunk.toString("utf8");
-    if (stderr.length > 20_000) stderr = stderr.slice(-20_000);
-  });
-
-  child.on("error", (error) => failAll(error));
-  child.on("exit", (code, signal) => {
-    if (pending.size > 0) {
-      failAll(new Error(`StudioMCP exited before response (code=${code ?? "null"}, signal=${signal ?? "null"}). ${stderr}`));
-    }
-  });
-
-  const abort = (): void => {
-    failAll(new Error("MCP request aborted"));
-    if (child.exitCode === null && !child.killed) child.kill();
-  };
-
-  if (options.signal?.aborted) abort();
-  options.signal?.addEventListener("abort", abort, { once: true });
-
-  const sendRequest = async <R = unknown>(requestMethod: string, requestParams?: unknown): Promise<JsonRpcSuccess<R>> => {
-    const id = nextId++;
-    const responsePromise = new Promise<JsonRpcResponse<R>>((resolve, reject) => {
-      pending.set(id, { resolve: resolve as (response: JsonRpcResponse) => void, reject });
-    });
-
-    writeMessage(child, { jsonrpc: "2.0", id, method: requestMethod, params: requestParams });
-
-    const timeoutPromise = new Promise<never>((_resolve, reject) => {
-      const timer = setTimeout(() => {
-        pending.delete(id);
-        reject(new Error(`Timed out waiting for MCP ${requestMethod} after ${timeoutMs}ms`));
-      }, timeoutMs);
-      responsePromise.finally(() => clearTimeout(timer)).catch(() => clearTimeout(timer));
-    });
-
-    const response = await Promise.race([responsePromise, timeoutPromise]);
-    assertJsonRpcSuccess<R>(response, requestMethod);
-    return response;
-  };
-
-  try {
-    await sendRequest("initialize", {
-      protocolVersion: MCP_PROTOCOL_VERSION,
-      capabilities: {},
-      clientInfo: getClientInfo(),
-    });
-
-    writeMessage(child, { jsonrpc: "2.0", method: "notifications/initialized" });
-
     const responses: JsonRpcSuccess[] = [];
     for (const call of calls) {
       responses.push(await sendRequest(call.method, call.params));
     }
 
-    return { responses, stderr };
+    return { ok: true, initializeResponse, responses, stderr };
+  } catch (error) {
+    return { ok: false, error, stderr };
   } finally {
     options.signal?.removeEventListener("abort", abort);
     await cleanup();

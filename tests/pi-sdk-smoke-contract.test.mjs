@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  behaviorAssertions, containsUnredactedLocalPaths, parseJsonLines, redactLocalPaths,
-  SDK_VERSIONS, VERIFICATION_CONTRACT,
+  behaviorAssertions, containsUnredactedLocalPaths, EXACT_SEMVER, parseJsonLines, redactLocalPaths,
+  SDK_PACKAGE_NAMES, VERIFICATION_CONTRACT,
 } from "../scripts/pi-sdk-smoke-contract.mjs";
 
 const registration = { type: "response", command: "get_commands", success: true, data: { commands: [
@@ -15,12 +15,21 @@ const warning = { ...notification, notifyType: "warning",
   message: "status\nplatform: win32\nsupported: true\nfound: false\ncallable: false\nreadiness: not_found" };
 const previousProcess = { exit_code: 0, process_exited: true, timed_out: false };
 const observed = (responses = [registration, prompt, notification], fullOutput = "", exit_code = 0,
-  process_exited = true, timed_out = false, previous_process = previousProcess) =>
-  ({ responses, fullOutput, exit_code, process_exited, timed_out, previous_process });
+  process_exited = true, timed_out = false, previous_process = previousProcess, expected_version = "1.4.0") =>
+  ({ responses, fullOutput, exit_code, process_exited, timed_out, previous_process, expected_version });
 
 test("frozen SDK contract and JSON-lines parsing", () => {
   assert.equal(VERIFICATION_CONTRACT, "pi-sdk-behavior-v2");
-  assert.deepEqual(Object.values(SDK_VERSIONS), ["1.2.0", "1.2.0", "1.2.0", "1.2.0"]);
+  // The verified packages are frozen; their versions are read from the manifest
+  // pin so an SDK bump does not require a second hand-edited version literal.
+  assert.deepEqual(SDK_PACKAGE_NAMES, [
+    "@earendil-works/pi-agent-core", "@earendil-works/pi-ai",
+    "@earendil-works/pi-coding-agent", "@earendil-works/pi-tui",
+  ]);
+  for (const version of ["1.4.0", "1.10.2", "2.0.0"]) assert.equal(EXACT_SEMVER.test(version), true);
+  for (const version of ["", "^1.4.0", "~1.4.0", "latest", "1.4", "1.4.0-beta.1"]) {
+    assert.equal(EXACT_SEMVER.test(version), false);
+  }
   assert.deepEqual(parseJsonLines(`not-json\r\n${JSON.stringify(prompt)}\n\n`), [prompt]);
 });
 
@@ -103,9 +112,14 @@ test("reload evidence requires second-process registration, feature response and
     { exit_code: 0, process_exited: false, timed_out: true }))[2].passed, false);
 });
 
-test("native shell assertion requires exact pinned Pi version and clean exit", () => {
-  assert.equal(behaviorAssertions("host_shell", observed([], "1.2.0\r\n"))[0].passed, true);
-  for (const [output, code, exited] of [["", 0, true], ["11.2.0", 0, true], ["1.2.0 but error", 0, true], ["1.2.0", 1, true], ["1.2.0", 0, false]]) {
+test("native shell assertion requires the manifest pin and clean exit", () => {
+  assert.equal(behaviorAssertions("host_shell", observed([], "1.4.0\r\n"))[0].passed, true);
+  // A bumped pin must be honored without editing this test or the contract.
+  assert.equal(behaviorAssertions("host_shell", observed([], "1.6.0\n", 0, true, false, previousProcess, "1.6.0"))[0].passed, true);
+  // A missing pin, a mismatched pin and a dirty exit all fail.
+  assert.equal(behaviorAssertions("host_shell", observed([], "1.4.0\n", 0, true, false, previousProcess, ""))[0].passed, false);
+  assert.equal(behaviorAssertions("host_shell", observed([], "1.4.0\n", 0, true, false, previousProcess, "1.6.0"))[0].passed, false);
+  for (const [output, code, exited] of [["", 0, true], ["11.4.0", 0, true], ["1.4.0 but error", 0, true], ["1.4.0", 1, true], ["1.4.0", 0, false]]) {
     assert.equal(behaviorAssertions("host_shell", observed([], output, code, exited))[0].passed, false);
   }
 });

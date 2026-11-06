@@ -1,10 +1,16 @@
 export const VERIFICATION_CONTRACT = "pi-sdk-behavior-v2";
-export const SDK_VERSIONS = {
-  "@earendil-works/pi-agent-core": "1.2.0",
-  "@earendil-works/pi-ai": "1.2.0",
-  "@earendil-works/pi-coding-agent": "1.2.0",
-  "@earendil-works/pi-tui": "1.2.0",
-};
+/**
+ * The Pi SDK packages this smoke verifies. Versions come from the manifest pin
+ * at run time: keeping a second hand-edited copy of the version here is what
+ * made every SDK dependency bump fail the smoke before it ever ran.
+ */
+export const SDK_PACKAGE_NAMES = [
+  "@earendil-works/pi-agent-core",
+  "@earendil-works/pi-ai",
+  "@earendil-works/pi-coding-agent",
+  "@earendil-works/pi-tui",
+];
+export const EXACT_SEMVER = /^\d+\.\d+\.\d+$/;
 export const UNHANDLED_ERROR_PATTERN = /UnhandledPromiseRejection|uncaught exception|shutdown error/i;
 export const EXTENSION_LOAD_ERROR_PATTERN = /Failed to load extension|Error loading extension/i;
 
@@ -87,7 +93,8 @@ function statusNotification(responses) {
     platform: platform ?? null };
 }
 
-export function behaviorAssertions(name, { responses, fullOutput, exit_code, process_exited, timed_out, previous_process }) {
+export function behaviorAssertions(name, { responses, fullOutput, exit_code, process_exited, timed_out, previous_process,
+  expected_version }) {
   if (name === "extension_load") {
     const registered = extensionRegistration(responses);
     return [assertion("extension_registered", "The actual Pi host registers /roblox-studio-mcp-status as an extension command",
@@ -134,10 +141,11 @@ export function behaviorAssertions(name, { responses, fullOutput, exit_code, pro
   }
 
   if (name === "host_shell") {
-    const expectedVersion = SDK_VERSIONS["@earendil-works/pi-coding-agent"];
-    const observed = { exit_code, process_exited, output: fullOutput.trim(), expectedVersion };
-    return [assertion("native_shell_boundary", `The native host shell launches the locally pinned Pi CLI and returns exactly ${expectedVersion}`,
-      observed, exit_code === 0 && process_exited === true && observed.output === observed.expectedVersion)];
+    const observed = { exit_code, process_exited, output: fullOutput.trim(), expectedVersion: expected_version };
+    const hasPin = typeof expected_version === "string" && expected_version.length > 0;
+    return [assertion("native_shell_boundary",
+      `The native host shell launches the locally pinned Pi CLI and returns exactly the manifest pin ${hasPin ? expected_version : "<missing>"}`,
+      observed, exit_code === 0 && process_exited === true && hasPin && observed.output === expected_version)];
   }
 
   throw new Error(`Unknown smoke case: ${name}`);

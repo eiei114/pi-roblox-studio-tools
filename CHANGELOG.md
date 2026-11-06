@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.6] - 2026-11-05
+
+### Changed
+
+- Read the Pi SDK verification versions from the `package.json` dev/test pins instead of a hard-coded copy in the smoke contract, so an SDK dependency bump no longer needs a second hand-edited version literal.
+- Verify Pi SDK 1.4.0 compatibility with the actual Pi-host smoke test.
+
 ## [0.3.5] - 2026-10-19
 
 ### Changed

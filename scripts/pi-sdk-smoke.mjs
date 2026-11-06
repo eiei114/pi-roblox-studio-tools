@@ -3,8 +3,8 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import {
-  behaviorAssertions, containsUnredactedLocalPaths, EXTENSION_LOAD_ERROR_PATTERN, parseJsonLines,
-  redactLocalPaths, SDK_VERSIONS, UNHANDLED_ERROR_PATTERN, VERIFICATION_CONTRACT,
+  behaviorAssertions, containsUnredactedLocalPaths, EXACT_SEMVER, EXTENSION_LOAD_ERROR_PATTERN, parseJsonLines,
+  redactLocalPaths, SDK_PACKAGE_NAMES, UNHANDLED_ERROR_PATTERN, VERIFICATION_CONTRACT,
 } from "./pi-sdk-smoke-contract.mjs";
 
 const PROBE_TIMEOUT_MS = 15_000;
@@ -13,14 +13,19 @@ const root = resolve(import.meta.dirname, "..");
 const reportPath = resolve(root, "docs/verification/pi-sdk-smoke.json");
 const readJson = (path) => JSON.parse(readFileSync(path, "utf8"));
 const manifest = readJson(resolve(root, "package.json"));
-const sdkVersions = Object.fromEntries(Object.keys(SDK_VERSIONS).map((name) => [
+const sdkVersions = Object.fromEntries(SDK_PACKAGE_NAMES.map((name) => [
   name, readJson(resolve(root, "node_modules", name, "package.json")).version,
 ]));
-for (const [name, version] of Object.entries(SDK_VERSIONS)) {
-  if (manifest.devDependencies?.[name] !== version || sdkVersions[name] !== version) {
-    throw new Error(`Smoke requires exact SDK dev/test pin ${name}@${version}; manifest=${manifest.devDependencies?.[name]}, installed=${sdkVersions[name]}`);
+// The smoke pins come from the manifest, so a dependency bump does not also need
+// a hand-edited copy of the expected version. Both sides must still be an exact
+// semver and must agree, which keeps the probe honest about what actually ran.
+for (const name of SDK_PACKAGE_NAMES) {
+  const pinned = manifest.devDependencies?.[name];
+  if (!EXACT_SEMVER.test(pinned ?? "") || pinned !== sdkVersions[name]) {
+    throw new Error(`Smoke requires an exact SDK dev/test pin for ${name}; manifest=${pinned}, installed=${sdkVersions[name]}`);
   }
 }
+const expectedPiVersion = sdkVersions["@earendil-works/pi-coding-agent"];
 
 const piManifest = readJson(resolve(root, "node_modules/@earendil-works/pi-coding-agent/package.json"));
 const piCli = resolve(root, "node_modules/@earendil-works/pi-coding-agent", piManifest.bin.pi);
@@ -112,7 +117,6 @@ function runPiRpc({ name, requests, env = baseEnv, isComplete, previous_process 
 }
 
 function runHostShell() {
-  const expectedVersion = sdkVersions["@earendil-works/pi-coding-agent"];
   let result;
   if (process.platform === "win32") {
     const shell = join(process.env.SystemRoot ?? "C:/Windows", "System32/WindowsPowerShell/v1.0/powershell.exe");
@@ -132,7 +136,8 @@ function runHostShell() {
   const code = result.status;
   const fullOutput = `${stdout}${stderr}`;
   const assertions = behaviorAssertions("host_shell", { responses: [], fullOutput,
-    exit_code: code ?? 1, process_exited: code !== null && !timedOut, timed_out: timedOut });
+    exit_code: code ?? 1, process_exited: code !== null && !timedOut, timed_out: timedOut,
+    expected_version: expectedPiVersion });
   return { name: "host_shell", command: "npm run smoke:pi", exit_code: code ?? 1,
     process_exited: code !== null && !timedOut, timed_out: timedOut, cleanup_timed_out: false,
     extensionLoadErrors: EXTENSION_LOAD_ERROR_PATTERN.test(fullOutput),

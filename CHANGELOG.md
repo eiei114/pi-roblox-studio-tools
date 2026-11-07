@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.7] - 2026-11-08
+
+### Changed
+
+- Pin the Pi SDK 1.5.0 wave for development and verify compatibility with the actual Pi host.
+
 ## [0.3.6] - 2026-11-05
 
 ### Changed

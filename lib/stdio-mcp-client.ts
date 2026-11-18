@@ -45,6 +45,8 @@ interface PendingRequest {
 }
 
 const DEFAULT_TIMEOUT_MS = 5000;
+const PROCESS_EXIT_GRACE_MS = 250;
+const STDIO_DRAIN_TIMEOUT_MS = 250;
 const MCP_PROTOCOL_VERSION = "2024-11-05";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -201,6 +203,47 @@ async function runMcpSession(
     windowsHide: true,
   });
 
+  let spawned = child.pid !== undefined;
+  const spawnPromise = new Promise<void>((resolve) => {
+    if (spawned) {
+      resolve();
+      return;
+    }
+
+    const onSpawn = (): void => {
+      spawned = true;
+      child.off("close", onClose);
+      resolve();
+    };
+    const onClose = (): void => {
+      child.off("spawn", onSpawn);
+      resolve();
+    };
+    child.once("spawn", onSpawn);
+    child.once("close", onClose);
+  });
+
+  let exited = child.exitCode !== null || child.signalCode !== null;
+  const exitPromise = new Promise<void>((resolve) => {
+    if (exited) {
+      resolve();
+      return;
+    }
+
+    child.once("exit", () => {
+      exited = true;
+      resolve();
+    });
+  });
+
+  let closed = false;
+  const closePromise = new Promise<void>((resolve) => {
+    child.once("close", () => {
+      closed = true;
+      resolve();
+    });
+  });
+
   options.onProcess?.(child);
 
   let nextId = 1;
@@ -209,21 +252,35 @@ async function runMcpSession(
   const pending = new Map<number, PendingRequest>();
 
   const cleanup = async (): Promise<void> => {
-    options.onProcessExit?.(child);
     child.stdin.end();
 
-    if (child.exitCode !== null || child.killed) return;
+    if (!spawned) await spawnPromise;
 
-    await new Promise<void>((resolve) => {
-      const timer = setTimeout(() => {
-        if (child.exitCode === null && !child.killed) child.kill();
-        resolve();
-      }, 250);
-      child.once("exit", () => {
-        clearTimeout(timer);
-        resolve();
-      });
-    });
+    if (spawned) {
+      if (!exited) {
+        const gracePeriod = new Promise<void>((resolve) => setTimeout(resolve, PROCESS_EXIT_GRACE_MS));
+        await Promise.race([exitPromise, gracePeriod]);
+
+        if (!exited) child.kill("SIGKILL");
+        await exitPromise;
+      }
+
+      if (!closed) {
+        const drainTimeout = new Promise<boolean>((resolve) => {
+          setTimeout(() => resolve(true), STDIO_DRAIN_TIMEOUT_MS);
+        });
+        const drained = await Promise.race([closePromise.then(() => false), drainTimeout]);
+        if (drained) {
+          child.stdin.destroy();
+          child.stdout.destroy();
+          child.stderr.destroy();
+        }
+      }
+    } else {
+      await closePromise;
+    }
+
+    options.onProcessExit?.(child);
   };
 
   const failAll = (error: Error): void => {
@@ -310,6 +367,8 @@ async function runMcpSession(
   };
 
   try {
+    if (options.signal?.aborted) throw new Error("MCP request aborted");
+
     const initializeResponse = await sendRequest("initialize", {
       protocolVersion: MCP_PROTOCOL_VERSION,
       capabilities: {},

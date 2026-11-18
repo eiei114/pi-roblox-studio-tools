@@ -64,6 +64,24 @@ function assertProcessFinished(tracking) {
   );
 }
 
+function isProcessRunning(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if (error.code === "ESRCH") return false;
+    throw error;
+  }
+}
+
+async function waitForProcessExit(pid, timeoutMs = 3000) {
+  const deadline = Date.now() + timeoutMs;
+  while (isProcessRunning(pid)) {
+    if (Date.now() >= deadline) assert.fail(`helper process ${pid} did not exit`);
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
+
 test("getClientInfo version matches package.json", async () => {
   const { getClientInfo } = await import("../lib/client-info.ts");
 
@@ -291,6 +309,49 @@ rl.on("line", (line) => {
   );
 
   assertProcessFinished(tracking);
+});
+
+test("runOneShotMcpRequest bounds stdio draining after the server exits", async () => {
+  const inheritedStdoutServer = String.raw`
+const { spawn } = require("node:child_process");
+const readline = require("node:readline");
+const rl = readline.createInterface({ input: process.stdin });
+rl.on("line", (line) => {
+  const message = JSON.parse(line);
+  if (message.method === "initialize") {
+    console.log(JSON.stringify({ jsonrpc: "2.0", id: message.id, result: {} }));
+  } else if (message.method === "tools/list") {
+    const helper = spawn(process.execPath, ["-e", "setTimeout(() => process.exit(0), 3000)"], {
+      stdio: ["ignore", "inherit", "ignore"],
+      detached: true,
+    });
+    helper.unref();
+    console.log(JSON.stringify({ jsonrpc: "2.0", id: message.id, result: { helperPid: helper.pid } }));
+  }
+});
+`;
+  const { tracking, options } = trackProcessOptions();
+  const startedAt = Date.now();
+
+  const result = await runOneShotMcpRequest(
+    { command: process.execPath, args: ["-e", inheritedStdoutServer], source: "node inherited-stdout server" },
+    "tools/list",
+    undefined,
+    { ...options, timeoutMs: 1000 },
+  );
+
+  assert.ok(Date.now() - startedAt < 750, "cleanup must not wait for inherited stdout to close");
+  assert.equal(typeof result.response.result.helperPid, "number");
+  const helperPid = result.response.result.helperPid;
+  try {
+    assert.ok(isProcessRunning(helperPid), "the helper still holds the server's stdout open");
+    assertProcessFinished(tracking);
+  } finally {
+    if (isProcessRunning(helperPid)) {
+      process.kill(helperPid);
+      await waitForProcessExit(helperPid);
+    }
+  }
 });
 
 test("runOneShotMcpRequests fails pending requests on noisy stdout between valid responses", async () => {

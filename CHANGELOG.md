@@ -5,6 +5,7 @@
 ### Fixed
 
 - Ensure aborted StudioMCP sessions reap their child processes and cover session failure paths.
+- Bound session cleanup when an exited server's inherited stdout remains open.
 
 ## [0.3.7] - 2026-11-08
 

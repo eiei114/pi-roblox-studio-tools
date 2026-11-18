@@ -209,21 +209,18 @@ async function runMcpSession(
   const pending = new Map<number, PendingRequest>();
 
   const cleanup = async (): Promise<void> => {
-    options.onProcessExit?.(child);
     child.stdin.end();
 
-    if (child.exitCode !== null || child.killed) return;
+    if (child.exitCode === null && child.signalCode === null) {
+      const closePromise = new Promise<void>((resolve) => child.once("close", () => resolve()));
+      const gracePeriod = new Promise<void>((resolve) => setTimeout(resolve, 250));
+      await Promise.race([closePromise, gracePeriod]);
 
-    await new Promise<void>((resolve) => {
-      const timer = setTimeout(() => {
-        if (child.exitCode === null && !child.killed) child.kill();
-        resolve();
-      }, 250);
-      child.once("exit", () => {
-        clearTimeout(timer);
-        resolve();
-      });
-    });
+      if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+      await closePromise;
+    }
+
+    options.onProcessExit?.(child);
   };
 
   const failAll = (error: Error): void => {
@@ -310,6 +307,8 @@ async function runMcpSession(
   };
 
   try {
+    if (options.signal?.aborted) throw new Error("MCP request aborted");
+
     const initializeResponse = await sendRequest("initialize", {
       protocolVersion: MCP_PROTOCOL_VERSION,
       capabilities: {},

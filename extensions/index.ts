@@ -9,6 +9,12 @@ const statusParameters = Type.Object({
 
 const inventoryParameters = Type.Object({});
 
+interface ExtensionDependencies {
+  resolveStatus?: typeof resolveStudioMcpCommand;
+  listTools?: typeof listStudioMcpTools;
+  listStudios?: typeof listRobloxStudios;
+}
+
 function formatStatus(status: Awaited<ReturnType<typeof resolveStudioMcpCommand>>, verbose = false): string {
   const lines = [
     status.message,
@@ -36,11 +42,15 @@ function formatStatus(status: Awaited<ReturnType<typeof resolveStudioMcpCommand>
   return lines.join("\n");
 }
 
-export default function (pi: ExtensionAPI) {
+export default function (pi: ExtensionAPI, dependencies: ExtensionDependencies = {}) {
+  const resolveStatus = dependencies.resolveStatus ?? resolveStudioMcpCommand;
+  const listTools = dependencies.listTools ?? listStudioMcpTools;
+  const listStudios = dependencies.listStudios ?? listRobloxStudios;
+
   pi.registerCommand("roblox-studio-mcp-status", {
     description: "Check whether Roblox Studio MCP can be found and initialized without starting a long-running MCP server",
     handler: async (_args, ctx) => {
-      const status = await resolveStudioMcpCommand();
+      const status = await resolveStatus();
       const text = formatStatus(status, true);
       const level = status.callable ? "info" : "warning";
       ctx.ui.notify(text, level);
@@ -59,7 +69,7 @@ export default function (pi: ExtensionAPI) {
     ],
     parameters: statusParameters,
     async execute(_toolCallId, params) {
-      const status = await resolveStudioMcpCommand();
+      const status = await resolveStatus();
       return {
         content: [{ type: "text", text: formatStatus(status, params.verbose ?? false) }],
         details: status,
@@ -79,7 +89,7 @@ export default function (pi: ExtensionAPI) {
     ],
     parameters: inventoryParameters,
     async execute() {
-      const result = await listStudioMcpTools();
+      const result = await listTools();
       return {
         content: [{ type: "text", text: result.text }],
         details: result.details,
@@ -99,7 +109,7 @@ export default function (pi: ExtensionAPI) {
     ],
     parameters: inventoryParameters,
     async execute() {
-      const result = await listRobloxStudios();
+      const result = await listStudios();
       return {
         content: [{ type: "text", text: result.text }],
         details: result.details,

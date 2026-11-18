@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.9] - 2026-11-18
+
+### Changed
+
+- Add exact-output tests for status reporting, notification levels, and inventory tool results.
+
 ## [0.3.8] - 2026-11-18
 
 ### Fixed

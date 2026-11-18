@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.8] - 2026-11-18
+
+### Fixed
+
+- Ensure aborted StudioMCP sessions reap their child processes and cover session failure paths.
+
 ## [0.3.7] - 2026-11-08
 
 ### Changed

@@ -6,6 +6,7 @@ const {
   capText,
   listRobloxStudios,
   listStudioMcpTools,
+  MAX_STUDIO_TEXT_BYTES,
   MAX_TOOL_DESCRIPTION_CHARS,
   MAX_TOOL_ENTRIES,
   sanitizeText,
@@ -225,6 +226,35 @@ test("listRobloxStudios returns successful Studio inventory", async () => {
   assert.equal(result.details.studioCount, 2);
   assert.match(result.text, /Detected 2 Roblox Studio instance/);
   assert.ok(result.details.rawExcerpt?.includes("studio-1"));
+});
+
+test("listRobloxStudios caps oversized multibyte results and strips controls", async () => {
+  const noisyText = `${"\u001B[31m🙂\u0007\u0000\u001B[0m".repeat(6000)}\u001B[2J`;
+  const result = await listRobloxStudios({
+    resolve: callableResolve("unused fake server"),
+    runRequest: async (_command, method, params) => {
+      assert.equal(method, "tools/call");
+      assert.equal(params?.name, "list_roblox_studios");
+      return {
+        response: {
+          jsonrpc: "2.0",
+          id: 1,
+          result: { content: [{ type: "text", text: noisyText }] },
+        },
+        stderr: "",
+      };
+    },
+  });
+
+  assert.equal(result.details.truncated, true);
+  assert.ok(result.details.rawExcerpt);
+  assert.ok(Buffer.byteLength(result.details.rawExcerpt, "utf8") <= MAX_STUDIO_TEXT_BYTES);
+  assert.ok(Buffer.byteLength(result.text, "utf8") <= MAX_STUDIO_TEXT_BYTES);
+  assert.match(result.text, /note: Studio inventory text was truncated/);
+  assert.ok(result.text.includes(result.details.rawExcerpt));
+  const controlCharacters = /[\u0000-\u0009\u000B-\u001F\u007F-\u009F]/;
+  assert.doesNotMatch(result.details.rawExcerpt, controlCharacters);
+  assert.doesNotMatch(result.text, controlCharacters);
 });
 
 test("listRobloxStudios reports zero Studio instances with guidance", async () => {

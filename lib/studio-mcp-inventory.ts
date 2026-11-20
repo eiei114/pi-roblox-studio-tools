@@ -277,7 +277,18 @@ export async function listRobloxStudios(options: {
       stderrExcerpt: stderr.excerpt || undefined,
     };
 
-    return { text: formatStudiosText(details), details };
+    let text = formatStudiosText(details);
+    if (Buffer.byteLength(text, "utf8") > MAX_STUDIO_TEXT_BYTES && details.rawExcerpt) {
+      details.truncated = true;
+      const summary = formatStudiosText({ ...details, rawExcerpt: undefined });
+      const inventoryPrefixBytes = Buffer.byteLength(`${summary}\ninventory:\n`, "utf8");
+      const excerptBudget = MAX_STUDIO_TEXT_BYTES - inventoryPrefixBytes;
+      const boundedExcerpt = capText(rawText, excerptBudget);
+      details.rawExcerpt = boundedExcerpt.text || undefined;
+      text = formatStudiosText(details);
+    }
+
+    return { text, details };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const mcpError = parseMcpError(error);

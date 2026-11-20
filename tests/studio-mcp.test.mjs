@@ -1,7 +1,37 @@
 import assert from "node:assert/strict";
+import { constants } from "node:fs";
+import { access, chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
-const { getStudioMcpCandidates, resolveStudioMcpCommand } = await import("../lib/studio-mcp.ts");
+const { getStudioMcpCandidates, pathExists, resolveStudioMcpCommand } = await import("../lib/studio-mcp.ts");
+
+test("pathExists checks real temporary files and falls back when execute permission is denied", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "studio-mcp-path-exists-"));
+  const existingPath = join(directory, "studio-mcp");
+  const missingPath = join(directory, "missing-studio-mcp");
+
+  try {
+    await writeFile(existingPath, "temporary test executable");
+    await chmod(existingPath, 0o644);
+
+    assert.equal(await pathExists(existingPath), true);
+    assert.equal(await pathExists(missingPath), false);
+
+    try {
+      await access(existingPath, constants.X_OK);
+      t.diagnostic("Host filesystem does not enforce execute permission; F_OK fallback check skipped.");
+    } catch (error) {
+      if (error.code !== "EACCES" && error.code !== "EPERM") throw error;
+
+      await access(existingPath, constants.F_OK);
+      assert.equal(await pathExists(existingPath), true, "an existing non-executable file is found via F_OK");
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
 
 test("windows candidates preserve a normalized Windows LOCALAPPDATA path", () => {
   const candidates = getStudioMcpCandidates("win32", { LOCALAPPDATA: "C:\\Users\\Test\\AppData\\Local" });

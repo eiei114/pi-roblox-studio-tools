@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.11] - 2026-11-20
+
+### Fixed
+
+- Keep the complete rendered Studio inventory within its UTF-8 byte cap, including summary and guidance lines.
+
 ## [0.3.10] - 2026-11-19
 
 ### Changed

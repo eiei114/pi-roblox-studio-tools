@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.12] - 2026-11-23
+
+### Fixed
+
+- Try the next installed StudioMCP candidate when the first fails to initialize, and retain the first error if none respond.
+
 ## [0.3.11] - 2026-11-20
 
 ### Fixed

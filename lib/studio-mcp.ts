@@ -153,21 +153,24 @@ export async function resolveStudioMcpCommand(options: {
     };
   }
 
+  const probe =
+    options.probe ??
+    ((command) => probeStudioMcpInitialize(command, { timeoutMs: options.probeTimeoutMs ?? 5000 }));
+  let firstFailure: StudioMcpStatus | undefined;
+
   for (const candidate of candidates) {
     if (!(await exists(candidate.command))) continue;
-
-    const probe =
-      options.probe ??
-      (async (command) => {
-        const result = await probeStudioMcpInitialize(command, { timeoutMs: options.probeTimeoutMs ?? 5000 });
-        return result.ok ? { ok: true } : { ok: false, error: result.error ?? "StudioMCP initialize probe failed." };
-      });
 
     const probeResult = await probe(candidate);
     if (probeResult.ok) return callableStatus(platform, candidate, checked);
 
-    return foundNotCallableStatus(platform, candidate, checked, probeResult.error ?? "StudioMCP initialize probe failed.");
+    firstFailure ??= foundNotCallableStatus(
+      platform,
+      candidate,
+      checked,
+      probeResult.error ?? "StudioMCP initialize probe failed.",
+    );
   }
 
-  return notFoundStatus(platform, checked);
+  return firstFailure ?? notFoundStatus(platform, checked);
 }

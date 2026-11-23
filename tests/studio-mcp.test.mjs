@@ -69,11 +69,19 @@ test("unsupported platforms are reported", async () => {
 });
 
 test("resolver returns first existing candidate when initialize succeeds", async () => {
+  const existsCalls = [];
+  const probeCalls = [];
   const status = await resolveStudioMcpCommand({
     platform: "win32",
     env: { LOCALAPPDATA: "C:\\Users\\Test\\AppData\\Local" },
-    exists: async (path) => path.endsWith("mcp.bat"),
-    probe: async () => ({ ok: true }),
+    exists: async (path) => {
+      existsCalls.push(path);
+      return true;
+    },
+    probe: async ({ command }) => {
+      probeCalls.push(command);
+      return { ok: true };
+    },
   });
 
   assert.equal(status.supported, true);
@@ -81,6 +89,49 @@ test("resolver returns first existing candidate when initialize succeeds", async
   assert.equal(status.callable, true);
   assert.equal(status.readiness, "callable");
   assert.equal(status.command?.command, "C:\\Users\\Test\\AppData\\Local\\Roblox\\mcp.bat");
+  assert.deepEqual(existsCalls, [status.command.command]);
+  assert.deepEqual(probeCalls, [status.command.command]);
+});
+
+test("resolver tries the second Windows candidate when the first fails to initialize", async () => {
+  const env = { LOCALAPPDATA: "C:\\Users\\Test\\AppData\\Local" };
+  const [first, second] = getStudioMcpCandidates("win32", env);
+  const probeCalls = [];
+  const status = await resolveStudioMcpCommand({
+    platform: "win32",
+    env,
+    exists: async () => true,
+    probe: async ({ command }) => {
+      probeCalls.push(command);
+      return command === first.command ? { ok: false, error: "Stale launcher" } : { ok: true };
+    },
+  });
+
+  assert.equal(status.readiness, "callable");
+  assert.equal(status.callable, true);
+  assert.deepEqual(status.command, second);
+  assert.equal(status.probeError, undefined);
+  assert.deepEqual(probeCalls, [first.command, second.command]);
+});
+
+test("resolver reports the first candidate and error when both Windows probes fail", async () => {
+  const env = { LOCALAPPDATA: "C:\\Users\\Test\\AppData\\Local" };
+  const [first, second] = getStudioMcpCandidates("win32", env);
+  const probeCalls = [];
+  const status = await resolveStudioMcpCommand({
+    platform: "win32",
+    env,
+    exists: async () => true,
+    probe: async ({ command }) => {
+      probeCalls.push(command);
+      return { ok: false, error: command === first.command ? "Stale launcher" : "Timed out" };
+    },
+  });
+
+  assert.equal(status.readiness, "found_not_callable");
+  assert.deepEqual(status.command, first);
+  assert.equal(status.probeError, "Stale launcher");
+  assert.deepEqual(probeCalls, [first.command, second.command]);
 });
 
 test("resolver distinguishes missing binary from failed initialize probe", async () => {

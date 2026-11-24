@@ -1,4 +1,4 @@
-import { access } from "node:fs/promises";
+import { access, stat } from "node:fs/promises";
 import { constants } from "node:fs";
 import { homedir } from "node:os";
 import { join, win32 } from "node:path";
@@ -71,6 +71,12 @@ export function getStudioMcpCandidates(
 }
 
 export async function pathExists(path: string): Promise<boolean> {
+  try {
+    if (!(await stat(path)).isFile()) return false;
+  } catch {
+    return false;
+  }
+
   try {
     await access(path, constants.X_OK);
     return true;

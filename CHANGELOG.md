@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.13] - 2026-11-24
+
+### Fixed
+
+- Skip directories when discovering StudioMCP executables, while still accepting symlinks to files.
+
 ## [0.3.12] - 2026-11-23
 
 ### Fixed

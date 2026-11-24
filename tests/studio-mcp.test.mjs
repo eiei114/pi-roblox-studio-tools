@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { constants } from "node:fs";
-import { access, chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import test from "node:test";
 
 const { getStudioMcpCandidates, pathExists, resolveStudioMcpCommand } = await import("../lib/studio-mcp.ts");
@@ -18,6 +18,7 @@ test("pathExists checks real temporary files and falls back when execute permiss
 
     assert.equal(await pathExists(existingPath), true);
     assert.equal(await pathExists(missingPath), false);
+    assert.equal(await pathExists(directory), false);
 
     try {
       await access(existingPath, constants.X_OK);
@@ -28,6 +29,26 @@ test("pathExists checks real temporary files and falls back when execute permiss
       await access(existingPath, constants.F_OK);
       assert.equal(await pathExists(existingPath), true, "an existing non-executable file is found via F_OK");
     }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("pathExists follows symlinks to regular files", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "studio-mcp-symlink-"));
+  const target = join(directory, "StudioMCP.exe");
+  const link = join(directory, "launcher.exe");
+
+  try {
+    await writeFile(target, "temporary test executable");
+    try {
+      await symlink(target, link, "file");
+    } catch (error) {
+      if (process.platform !== "win32" || error.code !== "EPERM") throw error;
+      t.skip("Windows host does not permit creating file symlinks");
+      return;
+    }
+    assert.equal(await pathExists(link), true);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -91,6 +112,39 @@ test("resolver returns first existing candidate when initialize succeeds", async
   assert.equal(status.command?.command, "C:\\Users\\Test\\AppData\\Local\\Roblox\\mcp.bat");
   assert.deepEqual(existsCalls, [status.command.command]);
   assert.deepEqual(probeCalls, [status.command.command]);
+});
+
+test("resolver skips a directory and probes only the second Windows candidate", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "studio-mcp-candidates-"));
+  const firstPath = join(directory, "Roblox", "mcp.bat");
+  const secondPath = join(directory, "Roblox Studio", "StudioMCP.exe");
+  const env = { LOCALAPPDATA: directory };
+  const [first, second] = getStudioMcpCandidates("win32", env);
+  const probeCalls = [];
+
+  try {
+    await mkdir(firstPath, { recursive: true });
+    await mkdir(dirname(secondPath));
+    await writeFile(secondPath, "temporary test executable");
+
+    // On non-Windows hosts, map Windows candidate strings to the real fixtures.
+    const fixturePaths = new Map([[first.command, firstPath], [second.command, secondPath]]);
+    const status = await resolveStudioMcpCommand({
+      platform: "win32",
+      env,
+      exists: process.platform === "win32" ? undefined : (path) => pathExists(fixturePaths.get(path)),
+      probe: async ({ command }) => {
+        probeCalls.push(command);
+        return { ok: true };
+      },
+    });
+
+    assert.deepEqual(probeCalls, [second.command]);
+    assert.deepEqual(status.command, second);
+    assert.equal(status.readiness, "callable");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test("resolver tries the second Windows candidate when the first fails to initialize", async () => {

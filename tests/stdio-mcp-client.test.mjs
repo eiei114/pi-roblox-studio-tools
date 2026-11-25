@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
@@ -133,6 +135,31 @@ test("probeStudioMcpInitialize completes initialize without follow-up requests",
   assert.equal(result.ok, true);
   assert.deepEqual(result.serverInfo, { name: "fake", version: "0.0.0" });
   assert.equal(result.error, undefined);
+});
+
+test("probeStudioMcpInitialize completes initialize through a Windows .cmd launcher in a path with spaces", {
+  skip: process.platform !== "win32" && "requires Windows cmd.exe",
+  timeout: 10_000,
+}, async (t) => {
+  const { probeStudioMcpInitialize } = await import("../lib/stdio-mcp-client.ts");
+  const directory = mkdtempSync(join(tmpdir(), "studio mcp launcher-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true, maxRetries: 3 }));
+
+  const launcher = join(directory, "server.cmd");
+  writeFileSync(join(directory, "server.cjs"), fakeServer);
+  const node = process.execPath.replaceAll("%", "%%");
+  writeFileSync(launcher, `@echo off\r\nsetlocal DisableDelayedExpansion\r\n"${node}" "%~dp0server.cjs"\r\n`);
+
+  const { tracking, options } = trackProcessOptions({ timeoutMs: 3000 });
+  const result = await probeStudioMcpInitialize(
+    { command: launcher, args: [], source: "Windows batch fake server" },
+    options,
+  );
+
+  assertProcessFinished(tracking);
+  assert.equal(result.ok, true, result.error || result.stderr);
+  assert.deepEqual(result.serverInfo, { name: "fake", version: "0.0.0" });
+  assert.equal(tracking.child.exitCode, 0, "the launcher and its fixture exited cleanly after stdin closed");
 });
 
 test("probeStudioMcpInitialize reports initialization errors and balances process tracking", async () => {
